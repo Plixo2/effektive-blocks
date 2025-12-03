@@ -1,0 +1,98 @@
+module canvas
+
+import src/ffi
+import src/lib/color
+
+// reexport, so other files dont have to include ffi
+type Image       = ffi::_Image
+type ImageData   = ffi::_ImageData
+type Context2D   = ffi::_Context2D
+type Node        = ffi::_Node
+
+def width(self: Image): Int = {
+  FFI::Canvas::width(self)
+}
+def height(self: Image): Int = {
+  FFI::Canvas::height(self)
+}
+def toHTMLImage(self: Image): Node = {
+  FFI::Canvas::toHTMLImage(self)
+}
+
+def colorAt(self: Image, x: Int, y: Int) at io: Color = {
+  val data = FFI::Canvas::data(self)
+  val pixel_index = y * self.width + x
+  val data_index = pixel_index * 4
+  val r = FFI::Canvas::get(data, data_index + 0)
+  val g = FFI::Canvas::get(data, data_index + 1)
+  val b = FFI::Canvas::get(data, data_index + 2)
+  val a = FFI::Canvas::get(data, data_index + 3)
+  Color(r, g, b, a)
+}
+def blit(
+  img: Image,
+  sourceX: Int,
+  sourceY: Int,
+  sourceWidth: Int,
+  sourceHeight: Int
+) at io: Image =
+  FFI::Canvas::blit(img, sourceX, sourceY, sourceWidth, sourceHeight)
+
+def scale(
+  img: Image,
+  scale: Int
+) at io: Image =
+  FFI::Canvas::scale(img, scale)
+
+
+def context2D(node: Node): Option[Context2D] = {
+  val unsafeElement = FFI::Canvas::context2DUnsafe(node)
+  
+  val wrapped: Option[Context2D] = undefinedToOption(unsafeElement)
+  // wrapped.foreach { e => FFI::Canvas::enableImageSmoothing(e)}
+  wrapped
+}
+def context2D(width: Int, height: Int) = {
+  val canvas = FFI::Dom::createElement("canvas")
+  FFI::Dom::setWidth(canvas, width)
+  FFI::Dom::setHeight(canvas, height)
+  return FFI::Canvas::context2DUnsafe(canvas);
+}
+def image(ctx: Context2D, width: Int, height: Int): Image = {
+  FFI::Canvas::image(ctx, 0, 0, width, height)
+}
+def download(img: Image, name: String) at io: Unit =
+  FFI::Canvas::download(img, name)
+
+// call this on <input> elements
+def loadImageFromInputElement(image: Node, handler: Option[Image] => Unit at {io, global}) at io: Unit = {
+  FFI::Canvas::loadImageFromInputUnsafe(image, box { ref => 
+    handler(undefinedToOption(ref))
+  })
+}
+
+
+interface Surface2D { 
+  def rect(color: Color, x: Int, y: Int, width: Int, height: Int): Unit
+  def clearRect(x: Int, y: Int, width: Int, height: Int): Unit
+  def image(image: Image, x: Int, y: Int): Unit
+}
+
+def draw(context2D: Context2D) { scope: => Unit / Surface2D } at {io, global} : Unit = {
+  try {
+    scope()  
+  } with Surface2D {
+    def rect(color: Color, x: Int, y: Int, width: Int, height: Int) = {
+      FFI::Canvas::drawColoredRect(context2D, color.cssString, x, y, width, height)
+      resume(())
+    }
+    def clearRect(x: Int, y: Int, width: Int, height: Int) = {
+      FFI::Canvas::clearRect(context2D, x, y, width, height)
+      resume(())
+    }
+    def image(image: Image, x: Int, y: Int) = {
+      FFI::Canvas::drawImage(context2D, image, x, y)
+      resume(())
+    }
+  }
+}

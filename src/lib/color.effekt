@@ -1,0 +1,95 @@
+module color
+
+/// Color components in RGBA format
+/// Each component from 0-255
+record Color(r: Int, g: Int, b: Int, a: Int)
+
+ //right 
+ //top 
+ //left
+namespace ColorBlock {
+  record TriColor(right: Color, top: Color, left: Color)
+
+  def A(t: TriColor): Color = t.right
+  def B(t: TriColor): Color = t.top
+  def C(t: TriColor): Color = t.left
+  
+  val GREEN = TriColor (
+  rgb(109, 141, 19),
+  rgb(166, 190, 70),
+  rgb(224, 239, 122)
+  )
+
+  val RED = TriColor (
+  rgb(200, 28, 8),
+  rgb(226, 85, 44),
+  rgb(252, 141, 81)
+  )
+
+  val DARK_BLUE = TriColor (
+  rgb(8, 26, 68),
+  rgb(47, 82, 131),
+  rgb(83, 138, 195)
+  )
+
+  val LIGHT_BLUE = TriColor (
+  rgb(90, 192, 194),
+  rgb(152, 220, 222),
+  rgb(213, 249, 251)
+  )
+
+  val VIOLETT = TriColor (
+  rgb(154, 63, 119),
+  rgb(198, 127, 174),
+  rgb(243, 191, 229)
+  )
+
+}
+def rgb(r: Int, g: Int, b: Int): Color = Color(r, g, b, 255)
+
+namespace Color {
+
+  val RED = Color(255, 0, 0, 255)
+  val GREEN = Color(0, 255, 0, 255)
+  // val GREEN = Color(0, 255, 0, 255) bug.. can be defined twice
+  val BLUE = Color(0, 0, 255, 255)
+}
+
+
+
+def colorFormat { str: => Unit / {literal, splice[Double], splice[Int]}}: String = stringBuffer  {
+  try {
+    str()
+    do flush()
+  }
+  with literal { s => resume(do write(s)) }
+  with splice[Int] { i => 
+    val format = i.max(0).min(255).show
+    resume(do write(format))
+  }
+  with splice[Double] { d => 
+    val format = (d / 255.0).max(0.0).min(1.0).show
+    resume(do write(format))
+  }
+}
+
+def infixEq(self: Color, other: Color): Bool = 
+  self.r == other.r &&
+  self.g == other.g &&
+  self.b == other.b &&
+  self.a == other.a
+
+def infixNeq(self: Color, other: Color): Bool = 
+  not(infixEq(self, other))
+
+/// Css color representation 
+/// Red, Green, Blue from 0 to 255
+/// Alpha from 0 to 1
+def cssString(self: Color): String = {
+  colorFormat"rgba(${self.r}, ${self.g}, ${self.b}, ${self.a.toDouble})"
+}
+
+
+def show(self: Color): String = {
+  colorFormat"Color(${self.r}, ${self.g}, ${self.b}, ${self.a})"
+}

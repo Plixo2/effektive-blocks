@@ -1,0 +1,247 @@
+module dom
+
+import src/ffi
+import src/lib/color
+
+
+// reexport, so other files dont have to include ffi
+type Node   = ffi::_Node
+type Style  = ffi::_Style
+
+effect Attribute(key: String, value: String): Unit
+
+def attribute(key: String, value: String): Unit / Attribute = {
+  do Attribute(key, value)
+}
+
+def attribute(key: String, value: Int): Unit / Attribute = {
+  attribute(key, value.show)
+}
+
+def attribute(key: String, value: Double): Unit / Attribute = {
+  attribute(key, value.show)
+}
+
+def attributes(node: Node) { scope: => Unit / Attribute }: Node = {
+  try {
+    scope()
+  } with Attribute { (key, value) => 
+      FFI::Dom::setAttribute(node, key, value)
+      resume(())
+  }
+  node
+}
+
+
+effect SetProperty(key: String, value: String): Unit
+
+def property(key: String, value: String): Unit / SetProperty = {
+  do SetProperty(key, value)
+}
+
+def property(key: String, color: Color): Unit / SetProperty = {
+  property(key, color.cssString)
+}
+
+def property(key: String, value: Int): Unit / SetProperty = {
+  property(key, value.show)
+}
+
+def property(key: String, value: Double): Unit / SetProperty = {
+  property(key, value.show)
+}
+
+
+def css(node: Node) { scope: => Unit / SetProperty }: Node = {
+  val style = FFI::Dom::style(node)
+  
+  try {
+    scope()
+  } with SetProperty { (key, value) => 
+      FFI::Dom::setProperty(style, key, value)
+      resume(())
+  }
+  node
+}
+
+
+
+interface HTMLElement {
+  def Child(child: Node): Unit
+  def Text(text: String): Unit  
+  def parent(): Node
+}
+
+
+def children[A](node: Node) { content: => A / HTMLElement }: Node = {
+  
+  try {
+    val _ = content()
+  }  with HTMLElement { 
+    def Child(child: Node) = {
+      FFI::Dom::appendChild(node, child)
+      resume(())
+    }
+    def Text(content: String) = {
+      val text = FFI::Dom::createTextNode(content)
+      FFI::Dom::appendChild(node, text)
+      resume(())
+    }
+    def parent() = resume(node)
+  }
+  node
+}
+
+
+def appendChild(parent: Node, child: Node): Unit = {
+  FFI::Dom::appendChild(parent, child)
+  ()
+}
+
+def onChildren(node: Node) { content: => Unit / HTMLElement }: Unit = {
+  children(node) { content }
+  ()
+}
+
+
+def create(tag: String): Node / HTMLElement = {
+  val element = FFI::Dom::createElement(tag)
+  do Child(element)
+  element
+}
+
+def insert(node: Node): Node / HTMLElement = {
+  do Child(node)
+  node
+}
+
+def text { str: => Unit / {literal, splice[Int], splice[Double], splice[Bool], splice[Char], splice[Byte]}}: Unit / HTMLElement = {
+
+  do Text(stringBuffer  {
+    try {
+      str()
+      do flush()
+    }
+    with literal { s => resume(do write(s)) }
+    with splice[Int] { i => resume(do write(i.show))}
+    with splice[Double] { i => resume(do write(i.show))}
+    with splice[Bool] { i => resume(do write(i.show))}
+    with splice[Char] { i => resume(do write(i.show))}
+    with splice[Byte] { i => resume(do write(i.show))}
+  })
+
+}
+
+def onClick(node: Node, handler: () => Unit at {io, global}) at io: Unit =
+  FFI::Dom::onClick(node, handler)
+
+def wait(time: Int, handler: () => Unit at {io, global}) at io: Unit =
+  FFI::Dom::wait(time, handler)
+
+def showAlert(message: String) at io: Unit = 
+  FFI::Dom::showAlert(message)
+
+def setupPopupHook() at io: Unit = {
+  FFI::Dom::setupPopupHook()
+}
+
+def clone(node: Node) at io: Node =
+  FFI::Dom::clone(node)
+
+def showMessage(message: String) at io: Unit = {
+  FFI::Dom::showMessage(message)
+}
+def removeContent(node: Node) at io: Unit =
+  FFI::Dom::removeContent(node)
+
+def getElementById(id: String): Option[Node] = {
+  val unsafeElement = FFI::Dom::getElementByIdUnsafe(id)
+  undefinedToOption(unsafeElement)
+}
+def createElement(tag: String) at io: Node = {
+  FFI::Dom::createElement(tag)
+}
+def getDocumentBody() at io: Node = {
+  FFI::Dom::getDocumentBody()
+}
+
+def getDocumentElement() at io: Node = {
+  FFI::Dom::getDocumentElement()
+}
+
+def numberFromInputElement(node: _Node) at io: Int = {
+  FFI::Dom::getInputNumber(node)
+}
+
+def onWindowResize(handler: () => Unit at {io, global}) at io: Int =
+  FFI::Dom::onWindowResize(handler)
+
+
+def windowWidth() at io: Int = 
+  FFI::Dom::windowWidth()
+ 
+def windowHeight() at io: Int = 
+  FFI::Dom::windowHeight()
+
+def width(node: Node) at io: Int = 
+  FFI::Dom::width(node)
+ 
+def height(node: Node) at io: Int = 
+  FFI::Dom::height(node)
+  
+def setWidth(node: Node, width: Int) at io: Int = 
+  FFI::Dom::setWidth(node, width)
+ 
+def setHeight(node: Node, height: Int) at io: Int = 
+  FFI::Dom::setHeight(node, height)
+
+def div[A]() { content: => A / HTMLElement }: Node / HTMLElement = "div".create.children { content }
+def button() { content: => Unit / HTMLElement }: Node / HTMLElement = "button".create.children { content }
+def span() { content: => Unit / HTMLElement }: Node / HTMLElement = "span".create.children { content }
+def canvas() { content: => Unit / HTMLElement }: Node / HTMLElement = "canvas".create.children { content }
+
+def row[A]() { content: => A / HTMLElement }: Node / HTMLElement = 
+  "div".create
+  .children { content }
+  .css { 
+    property("display", "flex"); 
+    property("flex-direction", "row"); 
+  }
+
+def column[A]() { content: => A / HTMLElement }: Node / HTMLElement = 
+  "div".create
+  .children { content }
+  .css { 
+    property("display", "flex"); 
+    property("flex-direction", "column"); 
+  }
+
+
+effect Popup(message: String): Nothing
+
+
+
+def popup() { scope: => Unit / Popup }: Unit = {
+
+  try {
+    scope()
+  } with Popup { message => 
+    showAlert(message)
+  }
+
+}
+def popup[E, T](proxy: on[E]) { prog: => T / Exception[E] }: T / Popup = {
+
+  try {
+    prog()
+  } with Exception[E] { 
+    def raise(exception: E, msg: String) = {
+      do Popup(msg)
+    }
+  }
+
+}
+def orShow[T](self: Option[T], message: String): T / Popup = self match {
+  case Some(v) => v
+  case None()  => do Popup(message)
+}

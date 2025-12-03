@@ -1,0 +1,395 @@
+module ffi
+
+
+
+extern jsWeb """
+function $newDrawingCtx(width, height) {
+    // Create an offscreen canvas
+    const canvas = document.createElement("canvas");
+    canvas.width = width;
+    canvas.height = height;
+    return canvas.getContext("2d");
+}
+function $drawInto(ctx, data, x, y) {
+  ctx.putImageData(data, x, y);
+}
+function $blitFx(source, sourceX, sourceY, sourceWidth, sourceHeight) {
+    const src = source.data;
+    const srcW = source.width;
+    
+    const result = new ImageData(sourceWidth, sourceHeight);
+    const dst = result.data;
+
+    const rowLength = sourceWidth * 4;
+
+    for (let y = 0; y < sourceHeight; y++) {
+        const srcStart = ((sourceY + y) * srcW + sourceX) * 4;
+        const dstStart = y * rowLength;
+
+        dst.set(src.subarray(srcStart, srcStart + rowLength), dstStart);
+    }
+
+    return result;
+}
+function $shuffled(array) {
+    const result = array.slice(); // make a shallow copy
+
+    for (let i = result.length - 1; i > 0; i--) {
+        const j = Math.floor(Math.random() * (i + 1));
+        [result[i], result[j]] = [result[j], result[i]];
+    }
+
+    return result;
+}
+function $imageDataFromFile(file, callback) {
+    const url = URL.createObjectURL(file);
+
+    const img = new Image();
+    img.onload = () => {
+        const canvas = document.createElement("canvas");
+        const ctx = canvas.getContext('2d');
+
+        canvas.width = img.width;
+        canvas.height = img.height;
+
+        ctx.drawImage(img, 0, 0);
+
+        const imageData = ctx.getImageData(0, 0, img.width, img.height);
+        callback(imageData);
+
+        URL.revokeObjectURL(url);
+    };
+    img.src = url;
+}
+function $downloadImageDataAsPNG(imageData, filename) {
+    // Create an offscreen canvas
+    const canvas = document.createElement("canvas");
+    canvas.width = imageData.width;
+    canvas.height = imageData.height;
+    const ctx = canvas.getContext("2d");
+
+    // Draw ImageData on it
+    ctx.putImageData(imageData, 0, 0);
+
+    // Convert to PNG blob and trigger download
+    canvas.toBlob((blob) => {
+        const url = URL.createObjectURL(blob);
+
+        const a = document.createElement("a");
+        a.href = url;
+        a.download = filename;
+        a.click();
+
+        URL.revokeObjectURL(url);
+    }, "image/png");
+}
+function $scaleImageData(imageData, scale) {
+  // Create an offscreen canvas for the source
+  const srcCanvas = document.createElement("canvas");
+  srcCanvas.width = imageData.width;
+  srcCanvas.height = imageData.height;
+
+  const srcCtx = srcCanvas.getContext("2d");
+  srcCtx.putImageData(imageData, 0, 0);
+
+  // Create an offscreen canvas for the destination (scaled)
+  const dstCanvas = document.createElement("canvas");
+  dstCanvas.width = imageData.width * scale;
+  dstCanvas.height = imageData.height * scale;
+
+  const dstCtx = dstCanvas.getContext("2d");
+
+  // Choose scaling quality
+  dstCtx.imageSmoothingEnabled = false; // pixel-perfect scaling (nearest-neighbor)
+
+  // Scale the source image into the destination
+  dstCtx.drawImage(
+    srcCanvas,
+    0, 0, srcCanvas.width, srcCanvas.height,
+    0, 0, dstCanvas.width, dstCanvas.height
+  );
+
+  // Return new ImageData
+  return dstCtx.getImageData(0, 0, dstCanvas.width, dstCanvas.height);
+}
+
+function $showMessage(message, color) {
+  const oldPopup = document.getElementById("error-popup");
+  if (oldPopup) {
+    oldPopup.remove();
+  }
+
+  const div = document.createElement("div");
+  div.id = "error-popup";
+  div.style.position = "fixed";
+  div.style.top = "20px";
+  div.style.right = "20px";
+  div.style.padding = "15px";
+  div.style.color = "white";
+  div.style.borderRadius = "4px";
+  div.style.fontFamily = "sans-serif";
+  div.style.zIndex = "9999";
+  div.style.background = color;
+  div.textContent = message;
+  document.body.appendChild(div);
+
+  setTimeout(() => div.remove(), 4000);
+}
+
+function $imageFromImageData(imageData) {
+  // Create an off-screen canvas
+  const canvas = document.createElement('canvas');
+  canvas.width = imageData.width;
+  canvas.height = imageData.height;
+
+  const ctx = canvas.getContext('2d');
+  ctx.putImageData(imageData, 0, 0);
+
+  // Create an Image object from the canvas
+  const img = new Image();
+  img.src = canvas.toDataURL("image/png");
+
+  return img;
+}
+
+"""
+
+// these are reexported, in the corresponding file, so other files dont have to include ffi
+// 
+extern type _Node        // lib/dom.effekt
+extern type _Style       // lib/dom.effekt 
+
+extern type _Image       // lib/canvas.effekt
+extern type _ImageData   // lib/canvas.effekt
+extern type _Context2D   // lib/canvas.effekt
+
+extern type _Map256x256  // lib/mutableIntTable.effekt
+extern type _MapKey256   // lib/mutableIntTable.effekt
+
+namespace FFI {
+
+  namespace Dom {
+    extern def setupPopupHook() at io: Unit =
+      jsWeb """
+      (function() {
+        window.onerror = (msg) => $showMessage(msg, '#f44336');
+        window.onunhandledrejection = (event) => $showMessage(event.reason, '#f44336');
+      }) ()
+      """
+    extern def showMessage(message: String) at io: Unit =
+      jsWeb "$showMessage(${message}, '#4c81e3ff')"
+
+    extern def getDocumentBody() at {}: _Node =
+      jsWeb "(document.body)" 
+
+    extern def getDocumentElement() at {}: _Node = 
+      jsWeb "(document.documentElement)"
+
+    extern def getElementByIdUnsafe(id: String) at io: _Node =
+      jsWeb "document.getElementById(${id})"
+
+    extern def createElement(tag: String) at io: _Node =
+      jsWeb "document.createElement(${tag})"
+
+    extern def createTextNode(text: String) at io: _Node =
+      jsWeb "document.createTextNode(${text})"
+
+    extern def clone(node: _Node) at io: _Node =
+      jsWeb "(${node}.cloneNode(true))"
+
+    extern def removeContent(node: _Node) at io: Unit =
+      jsWeb "${node}.innerHTML = ''"
+
+    extern def appendChild(node: _Node, child: _Node) at io: _Node =
+      jsWeb "${node}.appendChild(${child})"
+
+    extern def onClick(node: _Node, handler: () => Unit at {io, global}) at io: Unit =
+      jsWeb "(${node}.addEventListener('click', () => { $effekt.runToplevel((ks, k) => ${handler}(ks, k)) }))"
+
+    extern def wait(time: Int, handler: () => Unit at {io, global}) at io: Unit =
+      jsWeb "(setTimeout(() => $effekt.runToplevel((ks, k) => ${handler}(ks, k)), ${time}))"
+
+    extern def showAlert(message: String) at io: Unit = 
+      jsWeb "alert(${message})"
+
+    extern def getInputNumber(node: _Node): Int =
+      jsWeb """
+      (function() {
+        const num = ${node}.valueAsNumber
+        if (Number.isNaN(num)) {
+          return 0;
+        } else {
+          return Math.round(num);
+        }
+      }) ()
+      """
+      
+    extern def onWindowResize(handler: () => Unit at {io, global}) at io: Int =
+      jsWeb "window.addEventListener('resize', () => { $effekt.runToplevel((ks, k) => ${handler}(ks, k)) })"
+    
+
+    extern def windowWidth() at io: Int = 
+      jsWeb "(window.innerWidth)"
+
+    extern def windowHeight() at io: Int = 
+      jsWeb "(window.innerHeight)"
+
+    extern def setAttribute(node: _Node, key: String, value: String) at io: _Node =
+      jsWeb "(function() { ${node}.setAttribute(${key}, ${value}); return ${node} })()"
+
+    extern def style(node: _Node) at io: _Style = 
+      jsWeb "(${node}.style)"
+
+    extern def setProperty(style: _Style, key: String, value: String) at io: Unit =
+      jsWeb "(function() { ${style}.setProperty(${key}, ${value}); return ${style} })()"
+
+    // TODO rename
+    extern def width(node: _Node): Int =
+      jsWeb "Number(${node}.clientWidth)"
+
+    // TODO rename
+    extern def height(node: _Node): Int =
+      jsWeb "Number(${node}.clientHeight)"
+
+    extern def setWidth(node: _Node, width: Int): Int =
+      jsWeb "${node}.width = ${width}"
+
+    extern def setHeight(node: _Node, height: Int): Int =
+      jsWeb "${node}.height = ${height}"
+
+  }
+  namespace Canvas {
+    extern def width(img: _Image) at io: Int =
+      jsWeb "(${img}.width)"
+
+    extern def height(img: _Image) at io: Int =
+      jsWeb "(${img}.height)"
+
+    extern def loadImageFromInputUnsafe(inputNode: _Node, handler: _Image => Unit at {io, global}) at io: Unit =
+      jsWeb
+      """
+      (function() {
+        const files = ${inputNode}.files
+        const f = imageData => { $effekt.runToplevel((ks, k) => ${handler}(imageData, ks, k)) };
+        if (files && files[0]) {
+          $imageDataFromFile(files[0], f)
+        } else {
+          f(undefined)
+        }
+      }) ()
+      """
+
+    extern def data(img: _Image) at io: _ImageData =
+      jsWeb "(${img}.data)"  
+
+    extern def get(img: _ImageData, index: Int) at io: Int =
+      jsWeb "${img}[${index}]"
+
+
+    extern def download(img: _Image, name: String) at io: Unit =
+      jsWeb "$downloadImageDataAsPNG(${img}, ${name})"
+
+    extern def toHTMLImage(img: _Image) at io: _Node =
+      jsWeb "$imageFromImageData(${img})"
+      
+    extern def blit(
+      img: _Image,
+      sourceX: Int,
+      sourceY: Int,
+      sourceWidth: Int,
+      sourceHeight: Int
+    ) at io: _Image =
+      jsWeb "($blitFx(${img}, ${sourceX}, ${sourceY}, ${sourceWidth}, ${sourceHeight}))"
+
+    extern def scale(
+      img: _Image,
+      scale: Int
+    ) at io: _Image =
+      jsWeb "($scaleImageData(${img}, ${scale}))"
+
+    extern def context2DUnsafe(node: _Node) at io: _Context2D = 
+      jsWeb "(${node}.getContext('2d'))"
+
+    extern def enableImageSmoothing(ctx: _Context2D) at io: Unit =
+      jsWeb "${ctx}.imageSmoothingEnabled = true;"
+
+    extern def image(ctx: _Context2D, x: Int, y: Int, width: Int, height: Int) at io: _Image = 
+      jsWeb "${ctx}.getImageData(${x},  ${y}, ${width}, ${height})"
+    
+    extern def clearRect(ctx: _Context2D, x: Int, y: Int, width: Int, height: Int) at io: Unit = 
+      jsWeb "${ctx}.clearRect(${x},  ${y}, ${width}, ${height})"
+
+
+    extern def drawColoredRect(ctx: _Context2D, color: String, x: Int, y: Int, width: Int, height: Int) at io: Unit =
+      jsWeb 
+      """
+      (function() {
+        ${ctx}.fillStyle = (${color});
+        ${ctx}.fillRect(${x}, ${y}, ${width}, ${height});
+      }) ()
+      """
+
+    extern def drawImage(ctx: _Context2D, data: _Image, x: Int, y: Int) at io: Unit =
+      jsWeb "(${ctx}.putImageData(${data}, ${x}, ${y}));"
+  }
+
+  namespace Array {
+    extern def shuffle[T](array: Array[T]) at io: Array[T] = 
+      jsWeb "($shuffled(${array}))"
+
+    extern def pickRandom[T](array: Array[T]) at io: T = 
+      jsWeb "(${array}[Math.floor(Math.random() * ${array}.length)])"
+
+    extern def contains[T](array: Array[T], index: T) at io: Bool =
+      jsWeb "((${array}).includes(${index}))"
+
+    extern def copy(array: Array[Int]) at io: Array[Int] =
+      jsWeb "(${array}.slice())"
+
+    extern def push[A](array: Array[A], element: A) at io: Unit =
+      jsWeb "(${array}.push(${element}))"
+
+    extern def pop[A](array: Array[A]) at io: A =
+      jsWeb "(${array}.pop())"
+
+    extern def unique(array: Array[Int]) at io: Array[Int] =
+      jsWeb "([...new Set(${array})])"
+
+    extern def remove(array: Array[Int], element: Int) at io: Unit =
+      jsWeb
+      """
+      (function() {
+        const arr = ${array}
+        const e = ${element}
+        const index = arr.indexOf(e);
+        if (index !== -1) {
+          arr[index] = arr[arr.length - 1];
+          arr.pop();
+        }
+      } ())
+      """
+
+    extern def setToOne(array: Array[Int], element: Int) at io: Unit =
+      jsWeb
+      """
+      (function() {
+        ${array}.length = 1;
+        ${array}[0] = ${element};
+      } ())
+      """
+  }
+
+  namespace Map2D {
+
+      extern def newMap(): _Map256x256 = 
+        jsWeb "(new Int32Array(256 * 256))"
+
+      extern def keyOf(x: Int, y: Int): _MapKey256 = 
+        jsWeb "(${y} << 8) | ${x}})"
+
+    
+
+  }
+
+
+}

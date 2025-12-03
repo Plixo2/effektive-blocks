@@ -1,0 +1,12 @@
+
+import src/ffi
+
+
+// type Map256x256 = _Map256x256
+// // constraint to be in range 0 to 256 for x and y, so indexing is always valid 
+// type MapKey256 = _MapKey256
+
+// def emptyTable
+// 
+
+
