@@ -4,6 +4,8 @@
 
 ![Example](example2.png)
 
+![Animation](animation.mp4)
+
 </div>
 
 
