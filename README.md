@@ -1,4 +1,11 @@
-# Effekt Template
+# Effektive Blocks
+
+<div align="center">
+
+![Example](example2.png)
+
+</div>
+
 
 > [!WARNING]
 > This is a work-in-progress, feel free to contribute!
