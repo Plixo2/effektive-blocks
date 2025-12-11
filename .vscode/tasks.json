@@ -2,10 +2,19 @@
     "version": "2.0.0",
     "tasks": [
         {
+            "label": "Run Effekt Fast",
+            "command": "${command:effekt.run}",
+            "problemMatcher": [],
+        },
+        {
             "label": "Run Effekt Main",
             "type": "shell",
             "command": "effekt",
             "args": [
+                "--max-inline-size",
+                "10",
+                "--backend",
+                "js-web",
                 "src/main.effekt"
             ],
             "group": {
@@ -13,8 +22,8 @@
                 "isDefault": true
             },
             "presentation": {
-                "reveal": "always",
-                "panel": "new"
+                "reveal": "never",
+                "panel": "shared"
             },
             "problemMatcher": []
         },
