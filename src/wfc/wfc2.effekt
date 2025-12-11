@@ -1,0 +1,305 @@
+import src/wfc/tile
+import src/lib/array
+import src/lib/canvas
+import src/lib/color
+
+type Vec2I = (Int, Int)
+
+type TileIndex = Int
+
+def offset(coords: Vec2I, direction: Direction): Vec2I = {
+  val (x, y) = coords
+  (x + direction.dx, y + direction.dy)
+}
+
+record StateGrid(tileset: TileSet, size: Int, cells: Array[Array[Array[TileIndex]]])
+
+type Stack = List[Vec2I]
+
+effect fail(): Nothing
+
+def pop_back(stack: Stack): (Vec2I, Stack) = stack match {
+    case Nil() =>
+      panic("Should not happen")
+
+    case Cons(h, Nil()) =>
+      // last element
+      (h, Nil())
+
+    case Cons(h, t) =>
+      val (last, rest) = pop_back(t)
+      (last, Cons(h, rest))
+}
+def push_back_unique(stack: Stack, element: Vec2I): Stack = stack match {
+  case Nil() => Cons(element, Nil())
+  case Cons(h, t) => {
+    if (h == element) {
+      stack
+    } else {
+      Cons(h, push_back_unique(t, element))
+    }
+  }
+}
+def contains(stack: Stack, element: Vec2I): Bool = stack match {
+  case Nil() => false
+  case Cons(h, t) => {
+    if (h == element) {
+      true
+    } else {
+      contains(t, element)
+    }
+  }
+}
+
+def infixEq(a: Vec2I, b: Vec2I): Bool = 
+  a.first == b.first && a.second == b.second
+
+def initStateGrid(tileset: TileSet, size: Int): StateGrid = {
+  var numbers = array::build(tileset.tiles.size) { i => i }
+
+  val cells = array::build(size) { _ =>
+    array::build(size) { _ => 
+      arrays::copy(numbers)
+    }
+  }
+  StateGrid(tileset, size, cells)
+}
+
+def isCollapsed(): Bool = <>
+
+def foreachCell(self: StateGrid) { coords: Vec2I => Unit }: Unit = {
+  self.cells.foreachIndex { (x, c) =>
+    c.foreachIndex { (y, tiles) => 
+      coords((x, y))
+    }
+  }
+}
+
+// find cell with lowest number of prototypes
+// or 
+// Shannon Entropy: 
+//    shannon_entropy_for_square =
+//     log(sum(weight)) -
+//     (sum(weight * log(weight)) / sum(weight))
+def getMinEntropyCoords(self: StateGrid): Option[Vec2I] = {
+  var best = Nil()
+  var lowestEntropy = 1000000
+
+  // TODO use self.foreachCell { coords => ... }
+
+  // shuffle to get random values each time
+  self.foreachCell { coords => 
+      val tiles = self.tilesAt(coords)
+      var entropy = tiles.size
+      if (entropy != 1) {
+        if (entropy == lowestEntropy) {
+          best = Cons(coords, best)
+        } else if (entropy < lowestEntropy) {
+          lowestEntropy = entropy
+          best = Cons(coords, Nil())
+        }
+      }
+  }
+  arrays::pickRandom(array::fromList(best))
+}
+// pick a random one
+// or weight it?
+def collapseAt(self: StateGrid, coords: Vec2I): Unit = {
+  val tiles = self.tilesAt(coords)
+  arrays::pickRandom(tiles) match {
+    // removes all element from the list 
+    // and adds the element, so it only contains this element, .. in place
+    case Some(v) => arrays::setToOne(tiles, v)
+    case None() => {
+      panic("got no tiles at " ++ coords.show)   
+    }
+  }
+}
+
+
+def neighbors(self: StateGrid, coords: Vec2I) { coord: (Vec2I, Direction) => Unit }: Unit = {
+  Direction::VALUES.foreach { dir => 
+    val offset = coords.offset(dir)
+    val (x, y) = offset
+    if (x >= 0 && y >= 0 && x < self.size && y < self.size) {
+      coord(offset, dir)
+    }
+  }
+}
+
+def tilesAt(self: StateGrid, coords: Vec2I): Array[TileIndex] = {
+  val (x, y) = coords
+
+  val tile = self.cells.unsafeGet(x).unsafeGet(y)
+  undefinedToOption(tile) match {
+    case Some(v) => v
+    case None() => {
+      val str = "undefined tile at " ++ coords.show
+      panic(str)
+    }
+  }
+
+}
+
+def allNeigbors(self: StateGrid, coords: Vec2I, dir: Direction): Array[TileIndex] = {
+  var list = Nil()
+
+  self.tilesAt(coords).foreach { tileIndex => 
+    val tile = self.tileset.tiles.unsafeGet(tileIndex)
+    tile.adjacencyOfDirection(dir).foreach { n => 
+      list = Cons(n , list)
+    }
+    ()
+  }
+  list.fromList.unique
+}
+
+def constrain(self: StateGrid, coords: Vec2I, index: TileIndex): Bool = {
+  val toReduce = self.tilesAt(coords)
+  if (toReduce.size == 1 || toReduce.size == 0) {
+    println("Wrong reducement!!! at "  ++ coords.show)
+    // panic("Wrong reducement!!! at "  ++ coords.show)
+    false
+  } else {
+    arrays::remove(toReduce, index)
+    true
+  } 
+}
+
+def show(coords: Vec2I): String = 
+  s"Vec2(${coords.first.show}, ${coords.second.show})"
+
+def println(coords: Vec2I): Unit = 
+  println(coords.show)
+
+def show(dir: Direction): String = dir match {
+  case Direction::Up() => "UP"
+  case Direction::Right() => "RIGHT"
+  case Direction::Down() => "DOWN"
+  case Direction::Left() => "LEFT"
+}
+
+def println(coords: Direction): Unit = 
+  println(coords.show)
+
+def propagate(self: StateGrid, coords: Vec2I): Unit / fail = {
+  var stack = array::allocate(1)
+  stack.push(coords)
+
+  with stream::boundary
+  while (true) {
+    var element = stack.pop() match {
+      case Some(s) => s
+      case None() => do stop()
+    }
+    
+    self.neighbors(element) { (neighborCoords, direction) =>
+      var neighborTiles = arrays::copy(self.tilesAt(neighborCoords))
+      var currentNeighborsByDir = self.allNeigbors(element, direction)
+
+      neighborTiles.foreach { neighborTile =>
+        val possible? = arrays::contains(currentNeighborsByDir, neighborTile) 
+        if (not(possible?)) {
+          val removed = self.constrain(neighborCoords, neighborTile)
+          if (not(removed)) {
+            do fail()
+          } 
+          // stack = stack.push_back_unique(neighborCoords)
+          if (not(stack.contains(neighborCoords))) {
+            stack.push(neighborCoords)
+          }
+        }
+      }
+      
+    }
+  }
+}
+
+def collapseAtSpecific(self: StateGrid, coords: Vec2I, element: TileIndex): Unit = {
+  val tiles = self.tilesAt(coords)
+  arrays::setToOne(tiles, element)
+}
+
+def iterateAt(grid: StateGrid, coords: Vec2I): Unit / fail = {
+  grid.collapseAt(coords)
+  grid.propagate(coords)
+}
+
+def step(grid: StateGrid) at {global, io}: Unit / {stop, fail} = {
+  if (grid.getMinEntropyCoords() is Some(coords)) {
+    grid.iterateAt(coords)
+  } else {
+    do stop()
+  }
+}
+
+def solve(grid: StateGrid): Unit / fail = {
+  while (grid.getMinEntropyCoords() is Some(coords)) {
+    grid.iterateAt(coords)
+  }
+}
+
+def getImages(grid: StateGrid, coords: Vec2I) at {io, global}: Array[Node] = {
+  val tiles = grid.tilesAt(coords)
+  tiles.mapped { i => 
+    grid.tileset.tiles.unsafeGet(i).htmlImage
+  }
+}
+
+def renderStateGrid(grid: StateGrid) at {io, global}: Image = {
+  val tileSize = grid.tileset.tiles.unsafeGet(0).image.width
+  var tileCount = 4
+  var canvasSize = grid.size * tileCount * tileSize;
+  val ctx = context2D(canvasSize, canvasSize)
+  
+  ctx.draw {
+    grid.foreachCell { (coords) =>
+      val (cellX, cellY) = coords
+      val tiles = grid.tilesAt(coords)
+      tiles.size match {
+        case -1 => {
+          val i = tiles.unsafeGet(0)
+          val tileImage = grid.tileset.tiles.unsafeGet(i).image
+          var totalX = cellX * tileCount
+          var totalY = cellY * tileCount
+          do image(tileImage.scale(tileCount), totalX * tileSize, totalY * tileSize)
+          ()
+        }
+        case _ => {
+          tiles.foreach { i =>  
+            val tileImage = grid.tileset.tiles.unsafeGet(i).image
+            val tileX = i.mod(tileCount)
+            val tileY = i / tileCount
+            var totalX = cellX * tileCount + tileX
+            var totalY = cellY * tileCount + tileY
+
+            do image(tileImage, totalX * tileSize, totalY * tileSize)
+          }
+        }
+      }
+      
+      ()
+    }
+  }
+
+  ctx.image(canvasSize, canvasSize)
+}
+def renderStateGridFinal(grid: StateGrid) at {io, global}: Image = {
+  val tileSize = grid.tileset.tiles.unsafeGet(0).image.width
+  var canvasSize = grid.size * tileSize;
+  val ctx = context2D(canvasSize, canvasSize)
+  
+  ctx.draw {
+    grid.foreachCell { (coords) =>
+      val (cellX, cellY) = coords
+      val tiles = grid.tilesAt(coords)
+      if (tiles.size == 1) {
+        val i = tiles.unsafeGet(0)
+        val tileImage = grid.tileset.tiles.unsafeGet(i).image
+        do image(tileImage, cellX * tileSize, cellY * tileSize)
+      }
+    }
+  }
+
+  ctx.image(canvasSize, canvasSize)
+}
