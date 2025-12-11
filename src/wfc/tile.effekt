@@ -1,0 +1,93 @@
+module tile
+
+
+import src/lib/color
+import src/lib/canvas
+
+record Tile(
+  image: Image, 
+  htmlImage: Node,
+  index: Int,
+  weight: Double,
+  adjacency: Adjacency
+)
+
+type AdjacencyList = Array[Int]
+
+record Adjacency(
+  left: AdjacencyList,
+  right: AdjacencyList,
+  up: AdjacencyList,
+  down: AdjacencyList
+)
+record TileSet(tiles: Array[Tile])
+
+
+
+/**
+ *   Origin top left corner
+ *
+ *   +-------------->  Width
+ *   |
+ *   |
+ *   |
+ *   |
+ *   v
+ *
+ *   Height 
+ */
+
+namespace Direction {
+  type _Direction {
+    Up()
+    Right()
+    Down()
+    Left()
+  }
+  val UP = Up()
+  val RIGHT = Right()
+  val DOWN = Down()
+  val LEFT = Left()
+
+  val VALUES: List[_Direction] = [UP, RIGHT, DOWN, LEFT]
+}
+type Direction = Direction::_Direction
+
+def dx(self: Direction): Int = self match {
+  case Direction::Right() => 1
+  case Direction::Left() => -1
+  case _ => 0
+}
+def dy(self: Direction): Int = self match {
+  case Direction::Up() => -1
+  case Direction::Down() => 1
+  case _ => 0
+}
+def opposite(self: Direction): Direction = self match {
+  case Direction::Up() => Direction::DOWN
+  case Direction::Right() => Direction::LEFT
+  case Direction::Down() => Direction::UP
+  case Direction::Left() => Direction::LEFT
+}
+
+def adjacencyOfDirection(self: Tile, direction: Direction): AdjacencyList = direction match {
+  case Direction::Up() => self.adjacency.up
+  case Direction::Right() => self.adjacency.right
+  case Direction::Down() => self.adjacency.down
+  case Direction::Left() => self.adjacency.left
+}
+
+
+// can find effect like this in std
+effect Break[T](value: T): Nothing
+
+def boundary[T] { f: => T / Break[T] } at {}: T = {
+  try {
+    f()
+  } with Break[T] { value => 
+    value
+  }
+}
+
+
+

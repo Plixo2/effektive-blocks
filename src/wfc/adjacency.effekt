@@ -1,0 +1,144 @@
+module adjacency
+
+import src/lib/dom
+import src/lib/canvas
+import src/lib/color
+import src/wfc/tile
+import src/wfc/algorithm
+
+
+record RuledTile(color: Image, mask: Image)
+
+
+def getTile(index: Int, current: RuledTile, rules: List[RuledTile]): Tile = {
+  val adjacency = Adjacency(
+    getConnections(current.mask, rules) { (s, t) => canConnectX(s, t) },
+    getConnections(current.mask, rules) { (s, t) => canConnectX(t, s) },
+    getConnections(current.mask, rules) { (s, t) => canConnectY(s, t) },
+    getConnections(current.mask, rules) { (s, t) => canConnectY(t, s) }
+  )
+
+  var imgToRender = current.color.toHTMLImage.css {
+    property("image-rendering", "pixelated")
+    property("image-rendering", "crisp-edges")
+    property("width", "100%")
+    property("height", "100%")
+  }
+  Tile(current.color, imgToRender, index, 1.0, adjacency)
+}
+
+def calculateTileSet(rules: List[RuledTile]): TileSet / Popup = {
+  with on[OutOfBounds].popup
+  
+  val count = rules.size
+  val tiles = array::allocate(count)
+  rules.foreachIndex { (index, rule) =>
+    val tile = getTile(index, rule, rules)
+    tiles.set(index, tile)
+  }
+  TileSet(tiles)
+}
+
+def getConnections(source: Image, rules: List[RuledTile]) { test: (Image, Image) => Bool }: AdjacencyList = {
+  var adjacency = Nil()
+  rules.foreachIndex { (index, mask) => 
+    val can_connect = test(source, mask.mask)
+    if (can_connect) {
+      adjacency = Cons(index, adjacency)
+    }
+  }
+  adjacency.fromList
+}
+
+def allowConnectionOnColor(a: Color, b: Color): Bool = {
+  a == b
+}
+
+def canConnectY(source: Image, toTest: Image) at {io}: Bool = boundary[Bool] {
+  each(0, source.width) { x => 
+    val sourceColor = source.colorAt(x, 0)
+    var testColor = toTest.colorAt(x, toTest.height - 1)
+    if (not(allowConnectionOnColor(sourceColor, testColor))) {
+      do Break(false)
+    }
+  }
+  true
+}
+
+def canConnectX(source: Image, toTest: Image) at {io}: Bool = boundary[Bool] {
+  each(0, source.height) { y => 
+    val sourceColor = source.colorAt(0, y)
+    var testColor = toTest.colorAt(toTest.width - 1, y)
+    if (not(allowConnectionOnColor(sourceColor, testColor))) {
+        do Break(false)
+    }
+  }
+  true
+}
+
+def getRules(
+  color: Image, 
+  mask: Image, 
+  countX: Int,
+  countY: Int, 
+  pixels: Int,
+  maskPixels: Int
+): List[RuledTile] = {
+
+  var rules = array::allocate(countX * countY)
+  each(0, countX) { x => 
+    each(0, countY) { y => 
+      val colorTile = color.blit(
+        x * pixels,
+        y * pixels,
+        pixels,
+        pixels
+      );
+      val maskTile = mask.blit(
+        x * maskPixels, // use the maskPixels to calculate the correct window in the mask
+        y * maskPixels,
+        maskPixels,
+        maskPixels
+      );
+      rules.unsafeSet(y * countX + x, RuledTile(colorTile, maskTile))
+    }
+  }
+  rules.toList
+}
+
+
+def getTileSet(color: Image, mask: Image, pixels: Int): TileSet / Popup = {
+
+  var colorRatio = color.width.toDouble / color.height.toDouble
+  var maskRatio = mask.width.toDouble / mask.height.toDouble
+  val countX = color.width / pixels;
+  val countY = color.height / pixels;
+  val maskPixels = mask.height / countY;
+  
+  if (color.width.mod(pixels) != 0) {
+    do Popup(s"Tile resolution (${pixels.show}) does not divide color image width (${color.width.show})")
+  }
+  if (color.height.mod(pixels) != 0) {
+    do Popup(s"Tile resolution (${pixels.show}) does not divide color image height (${color.height.show})")
+  }
+
+  if (maskRatio != colorRatio) {
+    do Popup(s"The mask image aspect ratio does not match the color image ratio")
+  }
+
+  if (mask.width.mod(countX) != 0) {
+    do Popup(s"The amount of horizontal tiles does not divide mask image width (${mask.width.show})")
+  }
+  if (mask.height.mod(countY) != 0) {
+    do Popup(s"The amount of vertical tiles does not divide mask image height (${mask.height.show})")
+  }
+
+  // Assertion
+  if ((mask.width / countX) != (mask.height / countY)) {
+    do Popup(s"Assertion: Mask / Image")
+  }
+
+  // compilcated to show but, countX/countY is equals the amount of tiles in the mask
+  val rules = getRules(color, mask, countX, countY, pixels, maskPixels)
+  rules.calculateTileSet()
+}

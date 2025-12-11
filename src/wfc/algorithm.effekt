@@ -1,0 +1,156 @@
+module algorithm
+import src/wfc/tile
+import src/lib/canvas
+import src/lib/array
+import src/lib/dom
+
+namespace WFC {
+  type Cell {
+    open()
+    collapsed(tile: Tile)
+  }
+  type Grid = List[List[Cell]]
+
+  def empty(size: Int): Grid = {
+    list::fill(size, list::fill(size, Cell::open()))
+  }
+}
+
+def updated(self: WFC::Grid, x: Int, y: Int, tile: Tile): WFC::Grid = {
+    self.updateAt(x) { r =>
+      r.updateAt(y) {
+        _ => WFC::Cell::collapsed(tile)
+      }
+    }
+  }
+
+def canInsert(self: WFC::Grid, x: Int, y: Int, tile: Tile): Bool = boundary[Bool] {
+  Direction::VALUES.foreach { (dir) =>
+    if (openTileAt(self, x + dir.dx, y + dir.dy) is Some(target)) {
+      val canAdd = canConnectTo(tile, target, dir)
+      if (not(canAdd)) {
+        do Break(false)
+      }
+    }
+  }
+
+  true
+}
+
+def canConnectTo(source: Tile, target: Tile, dir: Direction): Bool = {
+  source.adjacencyOfDirection(dir).contains(target.index)
+}
+
+
+def openTileAt(self: WFC::Grid, x: Int, y: Int): Option[Tile] = {
+  with on[OutOfBounds].default { None() }
+  self.get(x).get(y) match {
+    case WFC::Cell::open() => None()
+    case WFC::Cell::collapsed(tile) => Some(tile)
+  }
+}
+
+def findOpen(self: WFC::Grid): Option[(Int, Int)] = boundary[Option[(Int, Int)]] {
+  self.foreachIndex { (x, column) =>
+    column.foreachIndex { (y, value) =>
+      if (value is WFC::Cell::open()) {
+        do Break(Some((x, y)))
+      }
+    }
+  }
+  None[(Int, Int)]()
+}
+
+
+interface Search {
+  /// Pick a random tile index
+  def pickTile(): Tile
+
+  /// Fail the backtracking search
+  def fail(): Nothing
+}
+
+
+def solve(board: WFC::Grid): WFC::Grid / Search = {
+  board.findOpen match {
+    case None() => board 
+
+    case Some((x, y)) => {
+      val newTile = do pickTile()
+      if (board.canInsert(x, y, newTile)) {
+        val newBoard = updated(board, x, y, newTile)
+        println("...")
+        // println("Inserted")
+        // println(newTile.index)
+        // println("at")
+        // println(x)
+        // println(y)
+        // println("-")
+        newBoard.solve()
+      } else {
+        do fail()
+      }
+    }
+  }
+}
+
+
+def findSolution(initial: WFC::Grid, tileset: TileSet): Option[WFC::Grid] = {
+  val tiles = tileset.tiles
+  try {
+    Some(solve(initial))
+  } with Search {
+    def fail() = None()
+    def pickTile() = {
+      val shuffled = shuffle(tiles)
+      boundary[Option[WFC::Grid]] {
+        array::foreach(shuffled) { tile =>
+          resume(tile) match {
+            case Some(solution) => do Break(Some(solution))
+            case None() => ()
+          }
+        }
+        None()
+      }
+    }
+  }
+ 
+}
+
+
+
+
+def draw(self: WFC::Grid) at {io, global}: Image / Popup = {
+  with on[MissingValue].popup
+  with on[OutOfBounds].popup
+
+  val width = self.size()
+  val height = self.get(0).size()
+  val a = self.get(0).get(0).asTile.value
+  
+  val pixelsW = a.image.width()
+  val pixelsH = a.image.height()
+  val canvasW = width * pixelsW;
+  val canvasH = height * pixelsH;
+  val ctx = context2D(canvasW, canvasH)
+
+  ctx.draw {
+    self.foreachIndex { (x, column) =>
+      column.foreachIndex { (y, value) =>
+        if (value is WFC::Cell::collapsed(tile)) {
+          do Surface2D::image(tile.image, x * pixelsW, y * pixelsH)
+        }
+      }
+    }
+  }
+
+  ctx.image(canvasW, canvasH)
+  
+}
+def asTile(self: WFC::Cell): Option[Tile] = {
+  if (self is WFC::Cell::collapsed(tile)) {
+    Some(tile)  
+  } else {
+    None()
+  }
+}

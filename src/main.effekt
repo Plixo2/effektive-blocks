@@ -1,5 +1,442 @@
 module main // must be named same as the file!
 
-import src/lib
 
-def main(): Unit = println(helloWorld())
+// import src/lib/color
+
+import src/lib/dom
+import src/lib/canvas
+import src/lib/color
+
+import src/wfc/algorithm
+import src/wfc/adjacency
+import src/wfc/wfc2
+import src/wfc/tile
+
+
+extern def getInputBool(node: Node): Bool =
+      jsWeb "${node}.checked"
+
+def cell(node: Node) = node.css {
+  property("border", "1px solid #ccccccff")
+  property("box-sizing", "border-box")
+  property("aspect-ratio", "1 / 1")
+  property("position", "relative")
+  
+  property("display", "flex")
+  property("align-items", "center")
+  property("justify-content", "center")
+}
+
+def grid(node: Node, size: Int) = node.css {
+  property("border", "2px solid #333333ff")
+  property("display", "grid")
+  property("grid-template-columns", s"repeat(${size.show}, 1fr)")
+  property("grid-template-rows", s"repeat(${size.show}, 1fr)")
+  property("box-sizing", "border-box")
+
+  property("position", "absolute")
+  property("top", "50%")
+  property("left", "50%")
+  property("transform", "translate(-50%, -50%)")
+  property("width", "50vw")
+  property("aspect-ratio", "1 / 1")
+  property("z-index", 10)
+}
+
+def create(showCanvas: Node, size: Int): Array[Node] = {
+  val elements = array::allocate(size * size)
+  showCanvas.removeContent()
+  showCanvas.onChildren {
+    div {
+      each (0, size) { y =>
+        each (0, size) { x =>
+          val c = div{}
+          cell(c)
+          elements.unsafeSet(y * size + x, c)
+
+          // c.onClick(box { 
+          //   with popup
+          //   try {
+          //     grid.get().iterateAt((x, y))
+          //     println(s"iter at ${x.show}, ${y.show}")
+          //     // grid.get().step()
+          //   } with fail { => 
+          //     do Popup("Could not solve image")
+          //   } with stop { => 
+          //     do Popup("Stopped")
+          //   }
+          //   render(showCanvas, grid)
+          //   ()
+          // })
+          ()
+        }
+      }
+    }.grid(size)
+
+    ()
+  }
+  elements
+}
+
+
+def render(individual: Bool, delay: Int, images: Array[Node], grid: Ref[StateGrid]): Unit = {
+  var size = grid.get().size
+  println("rendering")
+  
+  each (0, size) { y =>
+    each (0, size) { x =>
+      if (individual) {
+        var imgs = grid.get().tilesAt((x, y))
+       
+        var container = images.unsafeGet(y * size + x)
+        var count = imgs.size().toDouble
+        val n = count.sqrt().ceil()
+        val size = container.width.toDouble;   
+        val cellSize = size / n.toDouble;   
+
+        container.removeContent()
+        imgs.foreachIndex { (i, tileIndex) => {
+          var img = grid.get().tileset.tiles.unsafeGet(tileIndex).htmlImage
+          val item = img.clone;
+          val a = (i.toDouble / n.toDouble).floor.toDouble;
+          item.css {
+            property("position", "absolute")
+            property("width", cellSize.show ++ "px")
+            property("height", cellSize.show ++ "px")
+            property("left", ((i.mod(n)).toDouble * cellSize).show ++ "px")
+            property("top", (a * cellSize).show ++ "px")
+          }
+          item.onClick( box {
+            with popup
+            try {
+              grid.get().collapseAtSpecific((x, y), tileIndex)
+              grid.get().propagate((x, y))
+              render(individual, delay, images, grid)
+            } with fail { => 
+              do Popup("Could not solve image")
+            } with stop { => 
+              println("Solved")
+            }
+          })
+          container.appendChild(item)
+          ()
+        }}
+      } else {
+        var imgs = grid.get().getImages((x, y))
+        if (imgs.size() == 1) {
+          var container = images.unsafeGet(y * size + x)
+          container.removeContent()
+          container.appendChild(imgs.unsafeGet(0).clone)
+        }
+      }
+      ()
+    }
+  }
+
+  if (not(individual)) {
+    dom::wait(delay, box {
+      with popup
+      try {
+        grid.get().step()
+        render(individual, delay, images, grid)
+      } with fail { => 
+        do Popup("Could not solve image")
+      } with stop { => 
+        println("Solved")
+      }
+      
+      ()
+    })
+  }
+}
+
+def handleData(showCanvas: Node, color: Node, mask: Node, size: Node, gridSizeNode: Node, speedNode: Node, drawNode: Node, canContinue: => Bool at global) at {io}: Unit = {
+  with popup
+  val pixels       =    size        .numberFromInputElement()
+  val gridSize     =    gridSizeNode.numberFromInputElement()
+  val speedPercent =    speedNode   .numberFromInputElement().toDouble / 100.0
+  val draw         =    drawNode    .getInputBool()
+
+  if (draw && gridSize > 16) {
+    do Popup("Size to lange. Your browser does not support this. Disable drawing. ")
+  }
+
+  canvas::loadImageFromInputElement(color, box { color? => 
+    canvas::loadImageFromInputElement(mask, box { mask? => 
+      with popup
+
+      val color: Image = color?.getOrElse {
+        do Popup(s"Provide a color image")
+      }
+      val mask: Image = mask?.getOrElse {
+        do Popup(s"Provide a mask image")
+      }
+      println("Calculate Set")
+      val tileset = getTileSet(color, mask, pixels)
+      println("Calculated!")
+
+      println("Starting Wave function collapse")
+      val state = ref(initStateGrid(tileset, gridSize))
+      val maxWait = 1000
+      val waitTime = (maxWait.toDouble * (1.0 - speedPercent)).max(0.0).toInt
+      println("Waiting " ++ waitTime.show ++ " ms")
+      var imgs = create(showCanvas, gridSize)
+      render(draw, waitTime, imgs, state)
+      // each(8, 24) { xx =>
+      //   each(8, 24) { yy =>
+      //     state.collapseAtSpecific((xx, yy), 5)
+      //     try {
+      //         state.propagate((xx, yy))
+      //     } with fail { => 
+      //       do Popup("Could not solve image")
+      //     }
+      //   }
+      // }
+      // state.collapseAtSpecific((4, 4), 5)
+      // state.propagate((4, 4))
+
+      //tileset.tiles.unsafeGet(12).image.download("0.png")
+      // tileset.tiles.unsafeGet(0).image.download("0.png")
+      // tileset.tiles.unsafeGet(3).image.download("3.png")
+      // tileset.tiles.unsafeGet(15).image.download("15.png")
+      
+   
+
+      // def stepAndDraw(step: Int) at {io, global}: Unit = {
+      //   if (canContinue()) {
+      //     with popup
+      //     try {
+      //       dom::showMessage("Step " ++ step.show)
+
+      //       try {
+      //         // state.get().step()
+      //       } with fail { => 
+      //         do Popup("Could not solve image")
+      //       }
+
+      //       if (draw) {
+      //         // val img = state.renderStateGrid()
+      //         // showCanvas.setWidth(img.width)
+      //         // showCanvas.setHeight(img.height)
+      //         // var context = showCanvas.context2D.orShow("Expected Context2D on canvas")
+      //         // context.draw {
+      //         //   do image(img, 0, 0)
+      //         // }
+      //       }
+      //       dom::wait(waitTime, box { stepAndDraw(step + 1) })
+            
+      //     } with stop { =>
+      //       // val img = state.renderStateGridFinal()
+      //       // showCanvas.setWidth(img.width)
+      //       // showCanvas.setHeight(img.height)
+      //       // var context = showCanvas.context2D.orShow("Expected Context2D on canvas")
+      //       // context.draw {
+      //       //   do image(img, 0, 0)
+      //       // }
+      //       dom::showMessage("Ended after " ++ step.show ++ " steps")
+      //       println("Ended after " ++ step.show ++ " steps")
+      //     }
+      //   }
+      // }
+      // stepAndDraw(1)
+
+      ()
+    })
+  })
+
+}
+
+
+// https://css-tricks.com/snippets/css/a-guide-to-flexbox/
+def stylePage2(app: Node, showCanvas: Node): Unit = {
+  with app.onChildren
+
+  val color     = createElement("input")
+  val mask      = createElement("input")
+  val size      = createElement("input")
+  val gridSize  = createElement("input")
+  val speed     = createElement("input")
+  val draw      = createElement("input")
+  var runButton = createElement("button")
+
+  //TODO make better
+  val p = ref[Ref[Bool]](ref[Bool](true))
+  runButton.onClick(box {
+    p.get().set(false)
+
+    val newRef = ref[Bool](true)
+    p.set(newRef)
+    def canContinue() : Bool = newRef.get()
+
+    handleData(showCanvas, color, mask, size, gridSize, speed, draw, box canContinue)
+  })
+
+  row {
+    column {
+      row {
+        text"Image "
+        color.insert
+        .attributes {
+          attribute("type", "file")
+          attribute("accept", "image/*")
+        }
+      }
+      row {
+        text"Mask "
+        mask.insert
+        .attributes {
+          attribute("type", "file")
+          attribute("accept", "image/*")
+        }
+      }
+      row {
+        text"Pixels per Tile "
+        row {
+          size.insert
+          .attributes {
+            attribute("type", "number")
+            attribute("step", "1")
+            attribute("value", "8")
+            attribute("min", "1")
+            attribute("max", "1024")
+          }.css {
+            property("flex-basis", "40%")
+          }
+        }.css {
+          property("justify-content", "space-between")
+          property("margin-left", "20px")
+        }
+      }
+      row {
+        text"Grid size "
+        row {
+          gridSize.insert
+          .attributes {
+            attribute("type", "number")
+            attribute("type", "number")
+            attribute("step", "1")
+            attribute("value", "8")
+            attribute("min", "1")
+            attribute("max", "256")
+          }.css {
+            property("flex-basis", "40%")
+          }
+        }.css {
+          property("justify-content", "space-between")
+          property("margin-left", "20px")
+        }
+      }
+
+      row {
+        text"Speed "
+        row {
+          speed.insert
+          .attributes {
+            attribute("type", "range")
+            attribute("value", "90")
+            attribute("min", "0")
+            attribute("max", "100")
+          }.css {
+            property("flex-basis", "40%")
+          }
+        }.css {
+          property("justify-content", "space-between")
+          property("margin-left", "20px")
+        }
+      }
+      row {
+        text"Draw? "
+        row {
+          draw.insert
+          .attributes {
+            attribute("type", "checkbox")
+            attribute("checked", "true")
+          }.css {
+            property("flex-basis", "40%")
+          }
+        }.css {
+          property("justify-content", "space-between")
+          property("margin-left", "20px")
+        }
+      }
+      runButton.insert
+      .children {
+        text"Calculate"
+      }
+    }.css {
+      property("width", "20%")
+    }
+  }
+  ()
+}
+
+
+
+def main(): Unit = {
+  println("Setting up")
+  dom::setupPopupHook()
+
+  val documentElement = getDocumentElement()
+  val documentBody = getDocumentBody()
+  
+  def fullscreen(node: Node) = node.css {
+      property("margin", 0)
+      property("padding", 0)
+      property("overflow", "hidden")
+  }
+
+  documentElement.fullscreen()
+  documentElement.css {
+    property("background", Color(250, 247, 227, 255))
+  }
+  documentBody.fullscreen()
+
+
+  with documentBody.onChildren
+
+  
+  val canvas = canvas {}
+  .attributes {
+    attribute("id", "canvas")
+  }.css {
+    property("display", "none")
+    property("position", "absolute")
+    property("top", "50%")
+    property("left", "50%")
+    property("transform", "translate(-50%, -50%)")
+    property("width", "50vw")
+    // property("height", "50vh")
+    property("image-rendering", "pixelated")
+    property("z-index", -10)
+  }
+
+  def redraw(canvas: Node): Unit = {
+    canvas.setWidth(windowWidth())
+    canvas.setHeight(windowHeight())
+    ()
+  }
+
+  redraw(canvas)
+
+  onWindowResize(box {
+    redraw(canvas)
+  })
+
+
+  
+
+  val appDiv = getElementById("app").getOrElse {
+    val div = div {}
+    .attributes {
+      attribute("id", "app")
+    }
+    div
+  }
+  val h = div {}
+
+  stylePage2(appDiv, h)
+  
+  println("End of setup")
+  
+  ()
+}
