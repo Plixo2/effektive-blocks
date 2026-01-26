@@ -1,5 +1,4 @@
 {
-  ## TODO: Change to your project's description:
   description = "Html & wave function collapse";
 
   inputs = {
@@ -20,9 +19,7 @@
         pkgs = import nixpkgs { inherit system; };
         effekt-lib = effekt-nix.lib.${system};
 
-        ## Project configuration
-        # TODO: Change to your project's details:
-        pname = "effektive-blocks";         # package name
+        pname = "effektive-blocks";        # package name
         version = "0.1.0";                 # package version
         mainFile = "src/main.effekt";      # relative path to entrypoint (as a string)
         testFiles = [ "src/test.effekt" ]; # relative paths to tests (as a string)
@@ -44,7 +41,7 @@
           src = ./.;
           main = mainFile;
           tests = testFiles;
-          extraEffektFlags = [ "--max-inline-size 10" ];
+          extraEffektFlags = [ "--no-optimize" "--max-inline-size 10" ];
 
           effekt = effektBuild;
           inherit (effektConfig) backends;
