@@ -119,7 +119,7 @@ def findSolution(initial: WFC::Grid, tileset: TileSet): Option[WFC::Grid] = {
 }
 
 
-// Create the final image
+/// Create the final image
 def draw(self: WFC::Grid) at {io, global}: Image / Popup = {
   with on[MissingValue].popup
   with on[OutOfBounds].popup

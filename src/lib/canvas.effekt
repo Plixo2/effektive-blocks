@@ -54,7 +54,6 @@ def context2D(node: Node): Option[Context2D] = {
   val unsafeElement = FFI::Canvas::context2DUnsafe(node)
   
   val wrapped: Option[Context2D] = undefinedToOption(unsafeElement)
-  // wrapped.foreach { e => FFI::Canvas::enableImageSmoothing(e)}
   wrapped
 }
 def context2D(width: Int, height: Int) = {
@@ -69,7 +68,7 @@ def image(ctx: Context2D, width: Int, height: Int): Image = {
 def download(img: Image, name: String) at io: Unit =
   FFI::Canvas::download(img, name)
 
-// call this on <input> elements
+
 def loadImageFromInputElement(image: Node, handler: Option[Image] => Unit at {io, global}) at io: Unit = {
   FFI::Canvas::loadImageFromInputUnsafe(image, box { ref => 
     handler(undefinedToOption(ref))

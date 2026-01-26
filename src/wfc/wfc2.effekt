@@ -11,8 +11,8 @@ import src/lib/array
 import src/lib/canvas
 import src/lib/color
 
-
-effect fail(): Nothing // Used for constraint failures (when WFC gets stuck)
+/// Used for constraint failures (when WFC gets stuck)
+effect fail(): Nothing 
 
 record StateGrid(tileset: TileSet, size: Int, cells: Array[Array[Array[TileIndex]]])
 
@@ -37,7 +37,7 @@ def foreachCell(self: StateGrid) { coords: Vec2I => Unit }: Unit = {
   }
 }
 
-// find cell with lowest number of prototypes (Entropy). When none found, return None
+/// find cell with lowest number of prototypes (Entropy). When none found, return None
 def getMinEntropyCoords(self: StateGrid): Option[Vec2I] = {
   var best = Nil()
   var lowestEntropy = 1000000
@@ -128,7 +128,6 @@ def propagate(self: StateGrid, coords: Vec2I): Unit / fail = {
         val possible? = arrays::contains(currentNeighborsByDir, neighborTile) 
         if (not(possible?)) {
           self.constrain(neighborCoords, neighborTile)
-          // stack = stack.push_back_unique(neighborCoords)
           if (not(stack.contains(neighborCoords))) {
             stack.push(neighborCoords)
           }
@@ -144,7 +143,7 @@ def propagate(self: StateGrid, coords: Vec2I): Unit / fail = {
   interface
 */ 
 
-// create a new fully open state grid
+/// create a new fully open state grid
 def wfcStateGrid(tileset: TileSet, size: Int): StateGrid = {
   var numbers = array::build(tileset.tiles.size) { i => i }
 
@@ -157,19 +156,19 @@ def wfcStateGrid(tileset: TileSet, size: Int): StateGrid = {
 }
 
 
-// collapse cell at coords to specific element, should be valid (has to be checked before)
+/// collapse cell at coords to specific element, should be valid (has to be checked before)
 def collapseAtSpecific(self: StateGrid, coords: Vec2I, element: TileIndex): Unit = {
   val tiles = self.tilesAt(coords)
   arrays::setToOne(tiles, element)
 }
 
-// perform one iteration at coords: collapse + propagate
+/// perform one iteration at coords: collapse + propagate
 def iterateAt(grid: StateGrid, coords: Vec2I): Unit / fail = {
   grid.collapseAt(coords)
   grid.propagate(coords)
 }
 
-// perform one step of the WFC algorithm, i.e. find cell with lowest entropy, collapse and propagate
+/// perform one step of the WFC algorithm, i.e. find cell with lowest entropy, collapse and propagate
 def step(grid: StateGrid) at {global, io}: Unit / {stop, fail} = {
   if (grid.getMinEntropyCoords() is Some(coords)) {
     grid.iterateAt(coords)
@@ -177,7 +176,7 @@ def step(grid: StateGrid) at {global, io}: Unit / {stop, fail} = {
     do stop()
   }
 }
-// solve the WFC grid completely
+/// solve the WFC grid completely
 def solve(grid: StateGrid): Unit / fail = {
   while (grid.getMinEntropyCoords() is Some(coords)) {
     grid.iterateAt(coords)
@@ -185,7 +184,7 @@ def solve(grid: StateGrid): Unit / fail = {
 }
 
 
-// get all the DOM images for the tiles at coords
+/// get all the DOM images for the tiles at coords
 def getImages(grid: StateGrid, coords: Vec2I) at {io, global}: Array[Node] = {
   val tiles = grid.tilesAt(coords)
   tiles.mapped { i => 
@@ -193,7 +192,7 @@ def getImages(grid: StateGrid, coords: Vec2I) at {io, global}: Array[Node] = {
   }
 }
 
-// Debug for showing all the images of a grid
+/// Debug for showing all the images of a grid
 def createDebugStateImage(grid: StateGrid, tileCount: Int) at {io, global}: Image = {
   val tileSize = grid.tileset.tiles.get(0).image.width
   var canvasSize = grid.size * tileCount * tileSize;
@@ -232,7 +231,7 @@ def createDebugStateImage(grid: StateGrid, tileCount: Int) at {io, global}: Imag
   ctx.image(canvasSize, canvasSize)
 }
 
-// Debug for showing only the collapsed cells of a grid
+/// Debug for showing only the collapsed cells of a grid
 def createDebugStateImageCollapsed(grid: StateGrid) at {io, global}: Image = {
   val tileSize = grid.tileset.tiles.get(0).image.width
   var canvasSize = grid.size * tileSize;

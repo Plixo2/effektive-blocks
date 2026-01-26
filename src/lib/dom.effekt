@@ -208,10 +208,36 @@ def button() { content: => Unit / HTMLElement }: Node / HTMLElement = "button".c
 def span() { content: => Unit / HTMLElement }: Node / HTMLElement = "span".create.children { content }
 def canvas() { content: => Unit / HTMLElement }: Node / HTMLElement = "canvas".create.children { content }
 
+
+def h1(text: String) at io: Node / HTMLElement = 
+  "h1".create.children {
+    do Text(text)
+  }
+
+def h2(text: String) at io: Node / HTMLElement = 
+  "h2".create.children {
+    do Text(text)
+  }
+def small(text: String) at io: Node / HTMLElement = 
+  "small".create.children {
+    do Text(text)
+  }
+def label(text: String) at io: Node / HTMLElement = 
+  "label".create.children {
+    do Text(text)
+  }
+def a(text: String, href: String) at io: Node / HTMLElement = 
+  "a".create.children {
+    do Text(text)
+  }.attributes {
+    attribute("href", href)
+    attribute("target", "_blank")
+  }
+
 def row[A]() { content: => A / HTMLElement }: Node / HTMLElement = 
   "div".create
   .children { content }
-  .css { 
+  .css {
     property("display", "flex"); 
     property("flex-direction", "row"); 
   }
@@ -225,7 +251,7 @@ def column[A]() { content: => A / HTMLElement }: Node / HTMLElement =
   }
 
 
-// Popup effect for showing alert messages, used for showing user errors
+/// Popup effect for showing alert messages, used for showing user errors
 effect Popup(message: String): Nothing
 
 def popup() { scope: => Unit / Popup }: Unit = {
@@ -248,7 +274,7 @@ def popup[E, T](proxy: on[E]) { prog: => T / Exception[E] }: T / Popup = {
   }
 
 }
-// when option is None, show popup with message
+/// Unwrap an option or show a popup with the given message
 def orShow[T](self: Option[T], message: String): T / Popup = self match {
   case Some(v) => v
   case None()  => do Popup(message)

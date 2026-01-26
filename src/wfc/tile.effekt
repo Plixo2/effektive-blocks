@@ -97,7 +97,6 @@ def show(dir: Direction): String = dir match {
   case Direction::Left() => "LEFT"
 }
 
-// can find effect like this in std
 effect Break[T](value: T): Nothing
 
 def valueBoundary[T] { f: => T / Break[T] } at {}: T = {

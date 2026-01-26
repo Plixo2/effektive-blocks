@@ -1,7 +1,8 @@
-module main // must be named same as the file!
+module main
 
-
-// import src/lib/color
+/*
+  Main entry and web page setup for the Wave Function Collapse demo.
+*/
 
 import src/lib/dom
 import src/lib/canvas
@@ -11,6 +12,8 @@ import src/wfc/adjacency
 import src/wfc/wfc2
 import src/wfc/tile
 
+
+/// Some default styling for the main elements
 namespace Styling {
   def cell(node: Node) = node.css {
     property("border", "1px solid #ccccccff")
@@ -24,25 +27,23 @@ namespace Styling {
   }
 
   def grid(node: Node, size: Int) = node.css {
+    property("width", "min(calc(100% - (10px * 2)), calc(100vh - (10px * 2)))")
+    property("aspect-ratio", "1 / 1")
     property("border", "2px solid #333333ff")
     property("display", "grid")
     property("grid-template-columns", s"repeat(${size.show}, 1fr)")
     property("grid-template-rows", s"repeat(${size.show}, 1fr)")
     property("box-sizing", "border-box")
-
-    property("position", "absolute")
-    property("top", "50%")
-    property("left", "50%")
-    property("transform", "translate(-50%, -50%)")
-    property("width", "50vw")
-    property("aspect-ratio", "1 / 1")
-    property("z-index", 10)
   }
 
-  def fullscreen(node: Node) = node.css {
+  def fullscreen(node: Node) = node.css { 
       property("margin", 0)
       property("padding", 0)
+      property("height", "100%")
+      property("width", "100%")
       property("overflow", "hidden")
+      property("display", "flex")
+      property("font-family", "'Segoe UI', system-ui, sans-serif")
   }
 
   def stateCell(node: Node, cellSize: Double, column: Int, row: Int) = node.css {
@@ -55,14 +56,15 @@ namespace Styling {
 
 }
 
+type StateDOMCells = Array[Node]
 
-// Create a grid of DOM elements to render the WFC state into
-// Each cell can contain multiple images when in manual mode
-def createDOMCells(showCanvas: Node, size: Int): Array[Node] = {
+/// Create a grid of DOM elements to render the WFC state into
+/// Each cell can contain multiple images when in manual mode
+def createDOMCells(showCanvas: Node, size: Int): StateDOMCells = {
   val elements = array::unsafeAllocate(size * size)
   showCanvas.removeContent()
   showCanvas.onChildren {
-    val element = div {
+    val container = div {
       each (0, size) { y =>
         each (0, size) { x =>
           val c = div{}
@@ -72,17 +74,15 @@ def createDOMCells(showCanvas: Node, size: Int): Array[Node] = {
         }
       }
     };
-    Styling::grid(element, size)
-
+    Styling::grid(container, size)
     ()
   }
   elements
 }
 
 
-
-// update the WFC and render the current state. Either done automatically or manually via clicks
-def render(manualMode: Bool, delay: Int, images: Array[Node], gridReference: Ref[StateGrid]): Unit = {
+/// update the WFC and render the current state. Either done automatically or manually via clicks
+def render(manualMode: Bool, delay: Int, cells: StateDOMCells, gridReference: Ref[StateGrid]): Unit = {
   val grid = gridReference.get()
   var size = grid.size
   
@@ -91,7 +91,7 @@ def render(manualMode: Bool, delay: Int, images: Array[Node], gridReference: Ref
       if (manualMode) {
         var imgs = grid.tilesAt((x, y))
        
-        var container = images.get(y * size + x)
+        var container = cells.get(y * size + x)
         var count = imgs.size().toDouble
         val n = count.sqrt().ceil() // calculate size of grid in grid cell
         val size = container.clientWidth.toDouble;   
@@ -111,11 +111,9 @@ def render(manualMode: Bool, delay: Int, images: Array[Node], gridReference: Ref
             try {
               grid.collapseAtSpecific((x, y), tileIndex)
               grid.propagate((x, y))
-              render(manualMode, delay, images, gridReference)
+              render(manualMode, delay, cells, gridReference)
             } with fail { => 
               do Popup("Could not solve image, try increasing the size or changing the image/mask")
-            } with stop { => 
-            // solved, do nothing
             }
           })
           container.appendChild(item)
@@ -125,7 +123,7 @@ def render(manualMode: Bool, delay: Int, images: Array[Node], gridReference: Ref
         var imgs = grid.getImages((x, y))
         if (imgs.size() == 1) {
           // collapse into a single image
-          var container = images.get(y * size + x)
+          var container = cells.get(y * size + x)
           container.removeContent()
           container.appendChild(imgs.get(0).clone)
         }
@@ -139,7 +137,7 @@ def render(manualMode: Bool, delay: Int, images: Array[Node], gridReference: Ref
       with popup
       try {
         grid.step()
-        render(manualMode, delay, images, gridReference)
+        render(manualMode, delay, cells, gridReference)
       } with fail { => 
         do Popup("Could not solve image, try increasing the size or changing the image/mask")
       } with stop { => 
@@ -150,8 +148,9 @@ def render(manualMode: Bool, delay: Int, images: Array[Node], gridReference: Ref
   }
 }
 
-// Note that this does all the error handling. 
-// Errors are handled each click, so the user can try again without reloading the page.
+/// Reads all inputs and starts the WFC process
+/// Note that this does all the error handling. 
+/// Errors are handled each click, so the user can try again without reloading the page.
 def createWFCContext(
   showCanvas: Node,     // main canvas to draw to
   color: Node,          // color image
@@ -198,8 +197,9 @@ def createWFCContext(
       val maxWait = 1000
       val waitTime = (maxWait.toDouble * (1.0 - speedPercent)).max(0.0).toInt
 
-      var imgs = createDOMCells(showCanvas, gridSize)
-      render(draw, waitTime, imgs, state)
+      // create HMTL elements to render the state into
+      var cells = createDOMCells(showCanvas, gridSize)
+      render(draw, waitTime, cells, state)
 
       ()
     })
@@ -207,13 +207,74 @@ def createWFCContext(
 
 }
 
+/// Add a labeled input element (file/number/range)
+def addInputGroup(name: String, inputElement: Node): Node / { HTMLElement } = {
+  div {
+    label(name).css {
+      property("font-size", "0.85rem")
+      property("font-weight", "600")
+      property("color", "#a6adc8")
+    }.attributes {
+      attribute("for", name)
+    }
+    inputElement.insert.css {
+      property("width", "100%")
+      property("background", "#2b2b3b")
+      property("border", "1px solid #45475a")
+      property("color", "white")
+      property("padding", "8px")
+      property("border-radius", "6px")
+      property("outline", "none")
+      property("box-sizing", "border-box")
+    }.attributes {
+      attribute("id", name)
+    }
 
-// Main page content and layout
-// see flexbox docu: https://css-tricks.com/snippets/css/a-guide-to-flexbox/
-def createPageContent(app: Node): Unit = {
-  with app.onChildren
+    
+  }.css {
+    property("display", "flex")
+    property("flex-direction", "column")
+    property("gap", "5px")
+    property("box-sizing", "border-box")
+  }
+  return inputElement
+}
+/// Add a checkbox input with label
+def addCheckboxInputGroup(name: String, inputElement: Node): Node / { HTMLElement } = {
+  div {
+    inputElement.insert.css {
+      property("width", "18px")
+      property("height", "18px")
+      property("cursor", "pointer")
+      property("box-sizing", "border-box")
+    }.attributes {
+      attribute("id", name)
+    }
 
-  val drawContainer = div {} // grid container
+    label(name).css {
+      property("font-size", "0.85rem")
+      property("font-weight", "600")
+      property("color", "#a6adc8")
+      property("cursor", "pointer")
+    }.attributes {
+      attribute("for", name)
+    }
+    
+  }.css {
+    property("display", "flex")
+    property("align-items", "center")
+    property("cursor", "pointer")
+    property("user-select", "none")
+    property("gap", "10px")
+    property("box-sizing", "border-box")
+  }
+  return inputElement
+}
+/// Main page content and layout
+/// Creates all the input elements and the main div to draw into
+/// see flexbox docu: https://css-tricks.com/snippets/css/a-guide-to-flexbox/
+def createPageContent(body: Node): Unit = {
+  with body.onChildren
 
   val color     = createElement("input")
   val mask      = createElement("input")
@@ -223,6 +284,143 @@ def createPageContent(app: Node): Unit = {
   val draw      = createElement("input")
   var runButton = createElement("button")
 
+  
+
+  "aside".create.children {
+    div {
+      div {
+        h2("Effektive Blocks").css {
+          property("margin", "0")
+          property("font-size", "1.4rem")
+          property("color", "#74c7ec")
+        }
+        small("Wave Function Collapse in Effekt")
+      }
+
+      button() {
+        text "Help"
+      }.css {
+        // background: none;
+        // border: 1px solid var(--accent-color);
+        // color: var(--accent-color);
+        // border-radius: 4px;
+        // padding: 2px 8px;
+        // cursor: pointer;
+        // font-size: 0.75rem;
+        property("background", "none")
+        property("border", "1px solid #74c7ec")
+        property("color", "#74c7ec")
+        property("border-radius", "4px")
+        property("padding", "2px 8px")
+        property("cursor", "pointer")
+        property("font-size", "0.75rem")
+      }.onClick(box {
+        showAlert("""
+          Quick Help
+
+          > Tileset: 
+          Image with all tiles in a grid (e.g. 4x6).
+
+          > Ruleset: 
+          Image defining tile adjacencies. Must match Tileset aspect ratio. 
+
+          > Pixels per Tile: 
+          The width/height of each tile in the tileset (e.g. 32).
+
+          > Grid Dimensions: 
+          World size to generate.
+
+          > Speed: 
+          Frequency of automatic generation.
+
+          > Manual Mode: 
+          If enabled, you click cells to collapse them yourself.`
+        """)
+      })
+
+    }.css {
+      property("justify-content", "space-between")
+      property("align-items", "center")
+      property("display", "flex")
+      property("margin-bottom", "10px")
+      property("padding-bottom", "10px")
+      property("border-bottom", "1px solid #45475a")
+    }
+    addInputGroup("Tileset", color).attributes {
+      attribute("type", "file")
+      attribute("accept", "image/*")
+    }
+    addInputGroup("Ruleset", mask).attributes {
+      attribute("type", "file")
+      attribute("accept", "image/*")
+    }
+    addInputGroup("Pixels per Tile", size).attributes {
+      attribute("type", "number")
+      attribute("step", "1")
+      attribute("value", "8")
+      attribute("min", "1")
+      attribute("max", "1024")
+    }
+    addInputGroup("Grid Dimension", gridSize).attributes {
+      attribute("type", "number")
+      attribute("type", "number")
+      attribute("step", "1")
+      attribute("value", "8")
+      attribute("min", "1")
+      attribute("max", "256")
+    }
+    addInputGroup("Speed", speed).attributes {
+      attribute("type", "range")
+      attribute("value", "90")
+      attribute("min", "0")
+      attribute("max", "100")
+    }.css {
+      property("padding", "5px 0")
+      property("cursor", "pointer")
+    }
+    addCheckboxInputGroup("Automatic", draw).attributes {
+      attribute("type", "checkbox")
+      attribute("checked", "true")
+    }
+    runButton.insert
+    .children {
+      text"Calculate"
+    }.css {
+      property("margin-top", "10px")
+      property("background-color", "#74c7ec")
+      property("color", "#11111b")
+      property("border", "none")
+      property("padding", "12px")
+      property("font-weight", "bold")
+      property("font-size", "1rem")
+      property("border-radius", "6px")
+      property("cursor", "pointer")
+      property("transition", "background-color 0.2s")
+    }
+  }.css {
+    property("width", "250px")
+    property("height", "100%")
+    property("background-color", "#1e1e2e")
+    property("color", "white")
+    property("padding-left", "20px")
+    property("padding-right", "20px")
+    property("padding-top", "20px")
+    property("flex-shrink", "0")
+    property("border-right", "2px solid #45475a")
+    property("display", "flex")
+    property("flex-direction", "column")
+    property("gap", "15px")
+    property("overflow-y", "auto")
+    property("color", "#cdd6f4")
+  }
+  val drawContainer = div {}.css {
+    property("flex-grow", "1")
+    property("height", "100%")
+    property("display", "flex")
+    property("align-items", "center")
+    property("justify-content", "center")
+    property("background-color", Color(250, 247, 227, 255))
+  }
   // Make a unique reference to control the running state, as this cannot be captured directly in the handler
   // Mainly done for performance reasons to avoid recreating the entire state.
   // Can be improved and generalized, but there is no need for it, as this is only done once.
@@ -237,102 +435,6 @@ def createPageContent(app: Node): Unit = {
     createWFCContext(drawContainer, color, mask, size, gridSize, speed, draw, box canContinue)
   })
 
-  row {
-    column {
-      row {
-        text"Image "
-        color.insert
-        .attributes {
-          attribute("type", "file")
-          attribute("accept", "image/*")
-        }
-      }
-      row {
-        text"Mask "
-        mask.insert
-        .attributes {
-          attribute("type", "file")
-          attribute("accept", "image/*")
-        }
-      }
-      row {
-        text"Pixels per Tile "
-        row {
-          size.insert
-          .attributes {
-            attribute("type", "number")
-            attribute("step", "1")
-            attribute("value", "8")
-            attribute("min", "1")
-            attribute("max", "1024")
-          }.css {
-            property("flex-basis", "40%")
-          }
-        }.css {
-          property("justify-content", "space-between")
-          property("margin-left", "20px")
-        }
-      }
-      row {
-        text"Grid size "
-        row {
-          gridSize.insert
-          .attributes {
-            attribute("type", "number")
-            attribute("type", "number")
-            attribute("step", "1")
-            attribute("value", "8")
-            attribute("min", "1")
-            attribute("max", "256")
-          }.css {
-            property("flex-basis", "40%")
-          }
-        }.css {
-          property("justify-content", "space-between")
-          property("margin-left", "20px")
-        }
-      }
-
-      row {
-        text"Speed "
-        row {
-          speed.insert
-          .attributes {
-            attribute("type", "range")
-            attribute("value", "90")
-            attribute("min", "0")
-            attribute("max", "100")
-          }.css {
-            property("flex-basis", "40%")
-          }
-        }.css {
-          property("justify-content", "space-between")
-          property("margin-left", "20px")
-        }
-      }
-      row {
-        text"Automatic? "
-        row {
-          draw.insert
-          .attributes {
-            attribute("type", "checkbox")
-            attribute("checked", "true")
-          }.css {
-            property("flex-basis", "40%")
-          }
-        }.css {
-          property("justify-content", "space-between")
-          property("margin-left", "20px")
-        }
-      }
-      runButton.insert
-      .children {
-        text"Calculate"
-      }
-    }.css {
-      property("width", "20%")
-    }
-  }
   ()
 }
 
@@ -353,15 +455,15 @@ def main(): Unit = {
   // create a main app container
   with documentBody.onChildren
 
-  val appDiv = getElementById("app").getOrElse {
+  val app = getElementById("app").getOrElse {
     val div = div {}
     .attributes {
       attribute("id", "app")
     }
     div
   }
-
-  createPageContent(appDiv)
+  Styling::fullscreen(app)
+  createPageContent(app)
 
   
   ()

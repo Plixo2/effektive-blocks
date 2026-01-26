@@ -85,7 +85,7 @@ def canConnectX(source: Image, toTest: Image) at {io}: Bool = valueBoundary[Bool
 
 record RuleLayout(countX: Int, countY: Int, pixels: Int, maskPixels: Int)
 
-// Calculates all rules for all tiles from the image and mask provided
+/// Calculates all rules for all tiles from the image and mask provided
 def getRules(
   color: Image, 
   mask: Image, 
@@ -122,12 +122,12 @@ def getRules(
   interface
 */ 
 
-// creates the ruleset from the provided images and layout
+/// creates the ruleset from the provided images and layout
 def createRuleset(color: Image, mask: Image, layout: RuleLayout): RuleSet = {
   return getRules(color, mask, layout)
 }
 
-// this validates the input sizes and ratios
+/// this validates the input sizes and ratios
 def createLayout(color: Image, mask: Image, pixels: Int): RuleLayout / Popup = {
 
   var colorRatio = color.width.toDouble / color.height.toDouble
@@ -153,10 +153,8 @@ def createLayout(color: Image, mask: Image, pixels: Int): RuleLayout / Popup = {
   if (mask.height.mod(countY) != 0) {
     do Popup(s"The amount of vertical tiles does not divide mask image height (${mask.height.show})")
   }
-
-  // Assertion
   if ((mask.width / countX) != (mask.height / countY)) {
-    do Popup(s"Assertion: Mask / Image")
+    do Popup(s"The amount of Mask / Image does not result in square tiles")
   }
 
   RuleLayout(countX, countY, pixels, maskPixels)

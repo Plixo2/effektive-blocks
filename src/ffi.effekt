@@ -9,10 +9,10 @@ module ffi
 */
 
 
-// These are JavaScript functions used in the FFI definitions below.
-// Many of these are image manipulation utilities.
-// These are not minimal amount of code, but expose the least amount of 
-// surface area to and from Effekt/JavaScript.
+/// These are JavaScript functions used in the FFI definitions below.
+/// Many of these are image manipulation utilities.
+/// These are not minimal amount of code, but expose the least amount of 
+/// surface area to and from Effekt/JavaScript.
 extern jsWeb """
 function $newDrawingCtx(width, height) {
     const canvas = document.createElement("canvas");
@@ -165,7 +165,6 @@ function $imageFromImageData(imageData) {
 """
 
 // these are reexported, in the corresponding file, so other files dont have to include ffi
-// 
 extern type _Node        // lib/dom.effekt
 extern type _Style       // lib/dom.effekt 
 
