@@ -1,5 +1,10 @@
 module canvas
 
+/*
+  API for HTML5 Canvas elements for image manipulation.
+*/
+
+
 import src/ffi
 import src/lib/color
 

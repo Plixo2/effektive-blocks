@@ -1,5 +1,9 @@
 module dom
 
+/*
+  API for DOM manipulation
+*/ 
+
 import src/ffi
 import src/lib/color
 
@@ -172,6 +176,10 @@ def getDocumentElement() at io: Node = {
 def numberFromInputElement(node: _Node) at io: Int = {
   FFI::Dom::getInputNumber(node)
 }
+def boolFromInputElement(node: _Node): Bool = {
+  FFI::Dom::getInputBool(node)  
+}
+      
 
 def onWindowResize(handler: () => Unit at {io, global}) at io: Int =
   FFI::Dom::onWindowResize(handler)
@@ -183,11 +191,11 @@ def windowWidth() at io: Int =
 def windowHeight() at io: Int = 
   FFI::Dom::windowHeight()
 
-def width(node: Node) at io: Int = 
-  FFI::Dom::width(node)
+def clientWidth(node: Node) at io: Int = 
+  FFI::Dom::clientWidth(node)
  
-def height(node: Node) at io: Int = 
-  FFI::Dom::height(node)
+def clientHeight(node: Node) at io: Int = 
+  FFI::Dom::clientHeight(node)
   
 def setWidth(node: Node, width: Int) at io: Int = 
   FFI::Dom::setWidth(node, width)
@@ -217,9 +225,8 @@ def column[A]() { content: => A / HTMLElement }: Node / HTMLElement =
   }
 
 
+// Popup effect for showing alert messages, used for showing user errors
 effect Popup(message: String): Nothing
-
-
 
 def popup() { scope: => Unit / Popup }: Unit = {
 
@@ -241,6 +248,7 @@ def popup[E, T](proxy: on[E]) { prog: => T / Exception[E] }: T / Popup = {
   }
 
 }
+// when option is None, show popup with message
 def orShow[T](self: Option[T], message: String): T / Popup = self match {
   case Some(v) => v
   case None()  => do Popup(message)

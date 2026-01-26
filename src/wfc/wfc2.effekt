@@ -1,71 +1,33 @@
+module wfc2
+
+/*
+ Advanced Wave Function Collapse implementation
+ This implementation uses constraint propagation to efficiently find a valid tiling.
+ See wfc1 for a more naive implementation using backtracking search.
+*/
+
 import src/wfc/tile
 import src/lib/array
 import src/lib/canvas
 import src/lib/color
 
-type Vec2I = (Int, Int)
 
-type TileIndex = Int
+effect fail(): Nothing // Used for constraint failures (when WFC gets stuck)
+
+record StateGrid(tileset: TileSet, size: Int, cells: Array[Array[Array[TileIndex]]])
+
+
 
 def offset(coords: Vec2I, direction: Direction): Vec2I = {
   val (x, y) = coords
   (x + direction.dx, y + direction.dy)
 }
 
-record StateGrid(tileset: TileSet, size: Int, cells: Array[Array[Array[TileIndex]]])
 
-type Stack = List[Vec2I]
 
-effect fail(): Nothing
-
-def pop_back(stack: Stack): (Vec2I, Stack) = stack match {
-    case Nil() =>
-      panic("Should not happen")
-
-    case Cons(h, Nil()) =>
-      // last element
-      (h, Nil())
-
-    case Cons(h, t) =>
-      val (last, rest) = pop_back(t)
-      (last, Cons(h, rest))
-}
-def push_back_unique(stack: Stack, element: Vec2I): Stack = stack match {
-  case Nil() => Cons(element, Nil())
-  case Cons(h, t) => {
-    if (h == element) {
-      stack
-    } else {
-      Cons(h, push_back_unique(t, element))
-    }
-  }
-}
-def contains(stack: Stack, element: Vec2I): Bool = stack match {
-  case Nil() => false
-  case Cons(h, t) => {
-    if (h == element) {
-      true
-    } else {
-      contains(t, element)
-    }
-  }
-}
 
 def infixEq(a: Vec2I, b: Vec2I): Bool = 
   a.first == b.first && a.second == b.second
-
-def initStateGrid(tileset: TileSet, size: Int): StateGrid = {
-  var numbers = array::build(tileset.tiles.size) { i => i }
-
-  val cells = array::build(size) { _ =>
-    array::build(size) { _ => 
-      arrays::copy(numbers)
-    }
-  }
-  StateGrid(tileset, size, cells)
-}
-
-def isCollapsed(): Bool = <>
 
 def foreachCell(self: StateGrid) { coords: Vec2I => Unit }: Unit = {
   self.cells.foreachIndex { (x, c) =>
@@ -75,19 +37,11 @@ def foreachCell(self: StateGrid) { coords: Vec2I => Unit }: Unit = {
   }
 }
 
-// find cell with lowest number of prototypes
-// or 
-// Shannon Entropy: 
-//    shannon_entropy_for_square =
-//     log(sum(weight)) -
-//     (sum(weight * log(weight)) / sum(weight))
+// find cell with lowest number of prototypes (Entropy). When none found, return None
 def getMinEntropyCoords(self: StateGrid): Option[Vec2I] = {
   var best = Nil()
   var lowestEntropy = 1000000
 
-  // TODO use self.foreachCell { coords => ... }
-
-  // shuffle to get random values each time
   self.foreachCell { coords => 
       val tiles = self.tilesAt(coords)
       var entropy = tiles.size
@@ -100,15 +54,15 @@ def getMinEntropyCoords(self: StateGrid): Option[Vec2I] = {
         }
       }
   }
+  // shuffle to get random values each time
   arrays::pickRandom(array::fromList(best))
 }
-// pick a random one
-// or weight it?
+
 def collapseAt(self: StateGrid, coords: Vec2I): Unit = {
   val tiles = self.tilesAt(coords)
   arrays::pickRandom(tiles) match {
     // removes all element from the list 
-    // and adds the element, so it only contains this element, .. in place
+    // and adds the element, so it only contains this element. In place! (important!)
     case Some(v) => arrays::setToOne(tiles, v)
     case None() => {
       panic("got no tiles at " ++ coords.show)   
@@ -129,16 +83,7 @@ def neighbors(self: StateGrid, coords: Vec2I) { coord: (Vec2I, Direction) => Uni
 
 def tilesAt(self: StateGrid, coords: Vec2I): Array[TileIndex] = {
   val (x, y) = coords
-
-  val tile = self.cells.get(x).get(y)
-  undefinedToOption(tile) match {
-    case Some(v) => v
-    case None() => {
-      val str = "undefined tile at " ++ coords.show
-      panic(str)
-    }
-  }
-
+  return self.cells.get(x).get(y)
 }
 
 def allNeigbors(self: StateGrid, coords: Vec2I, dir: Direction): Array[TileIndex] = {
@@ -154,34 +99,15 @@ def allNeigbors(self: StateGrid, coords: Vec2I, dir: Direction): Array[TileIndex
   list.fromList.unique
 }
 
-def constrain(self: StateGrid, coords: Vec2I, index: TileIndex): Bool = {
+def constrain(self: StateGrid, coords: Vec2I, index: TileIndex): Unit / fail = {
   val toReduce = self.tilesAt(coords)
   if (toReduce.size == 1 || toReduce.size == 0) {
-    // this means that we could not solve this grid at all. Either backtrack or fail
-    println("Wrong reducement!!! at "  ++ coords.show)
-    // panic("Wrong reducement!!! at "  ++ coords.show)
-    false
-  } else {
-    arrays::remove(toReduce, index)
-    true
-  } 
+    do fail()
+  }
+
+  arrays::remove(toReduce, index)
 }
 
-def show(coords: Vec2I): String = 
-  s"Vec2(${coords.first.show}, ${coords.second.show})"
-
-def println(coords: Vec2I): Unit = 
-  println(coords.show)
-
-def show(dir: Direction): String = dir match {
-  case Direction::Up() => "UP"
-  case Direction::Right() => "RIGHT"
-  case Direction::Down() => "DOWN"
-  case Direction::Left() => "LEFT"
-}
-
-def println(coords: Direction): Unit = 
-  println(coords.show)
 
 def propagate(self: StateGrid, coords: Vec2I): Unit / fail = {
   var stack = array::array(1, (0, 0))
@@ -201,10 +127,7 @@ def propagate(self: StateGrid, coords: Vec2I): Unit / fail = {
       neighborTiles.foreach { neighborTile =>
         val possible? = arrays::contains(currentNeighborsByDir, neighborTile) 
         if (not(possible?)) {
-          val removed = self.constrain(neighborCoords, neighborTile)
-          if (not(removed)) {
-            do fail()
-          }
+          self.constrain(neighborCoords, neighborTile)
           // stack = stack.push_back_unique(neighborCoords)
           if (not(stack.contains(neighborCoords))) {
             stack.push(neighborCoords)
@@ -216,16 +139,37 @@ def propagate(self: StateGrid, coords: Vec2I): Unit / fail = {
   }
 }
 
+
+/*
+  interface
+*/ 
+
+// create a new fully open state grid
+def wfcStateGrid(tileset: TileSet, size: Int): StateGrid = {
+  var numbers = array::build(tileset.tiles.size) { i => i }
+
+  val cells = array::build(size) { _ =>
+    array::build(size) { _ => 
+      arrays::copy(numbers)
+    }
+  }
+  StateGrid(tileset, size, cells)
+}
+
+
+// collapse cell at coords to specific element, should be valid (has to be checked before)
 def collapseAtSpecific(self: StateGrid, coords: Vec2I, element: TileIndex): Unit = {
   val tiles = self.tilesAt(coords)
   arrays::setToOne(tiles, element)
 }
 
+// perform one iteration at coords: collapse + propagate
 def iterateAt(grid: StateGrid, coords: Vec2I): Unit / fail = {
   grid.collapseAt(coords)
   grid.propagate(coords)
 }
 
+// perform one step of the WFC algorithm, i.e. find cell with lowest entropy, collapse and propagate
 def step(grid: StateGrid) at {global, io}: Unit / {stop, fail} = {
   if (grid.getMinEntropyCoords() is Some(coords)) {
     grid.iterateAt(coords)
@@ -233,13 +177,15 @@ def step(grid: StateGrid) at {global, io}: Unit / {stop, fail} = {
     do stop()
   }
 }
-
+// solve the WFC grid completely
 def solve(grid: StateGrid): Unit / fail = {
   while (grid.getMinEntropyCoords() is Some(coords)) {
     grid.iterateAt(coords)
   }
 }
 
+
+// get all the DOM images for the tiles at coords
 def getImages(grid: StateGrid, coords: Vec2I) at {io, global}: Array[Node] = {
   val tiles = grid.tilesAt(coords)
   tiles.mapped { i => 
@@ -247,9 +193,9 @@ def getImages(grid: StateGrid, coords: Vec2I) at {io, global}: Array[Node] = {
   }
 }
 
-def renderStateGrid(grid: StateGrid) at {io, global}: Image = {
+// Debug for showing all the images of a grid
+def createDebugStateImage(grid: StateGrid, tileCount: Int) at {io, global}: Image = {
   val tileSize = grid.tileset.tiles.get(0).image.width
-  var tileCount = 4
   var canvasSize = grid.size * tileCount * tileSize;
   val ctx = context2D(canvasSize, canvasSize)
   
@@ -285,7 +231,9 @@ def renderStateGrid(grid: StateGrid) at {io, global}: Image = {
 
   ctx.image(canvasSize, canvasSize)
 }
-def renderStateGridFinal(grid: StateGrid) at {io, global}: Image = {
+
+// Debug for showing only the collapsed cells of a grid
+def createDebugStateImageCollapsed(grid: StateGrid) at {io, global}: Image = {
   val tileSize = grid.tileset.tiles.get(0).image.width
   var canvasSize = grid.size * tileSize;
   val ctx = context2D(canvasSize, canvasSize)

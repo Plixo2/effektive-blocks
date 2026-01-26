@@ -1,14 +1,20 @@
 module adjacency
 
+/*
+  Rule (adjacency information) calculation for tiles based on a image mask
+  Analyzes the edges of the tiles in the mask image to determine which tiles can be adjacent to each other
+  based on color matching along the edges.
+*/
+
+
 import src/lib/dom
 import src/lib/canvas
 import src/lib/color
 import src/wfc/tile
-import src/wfc/algorithm
 
 
 record RuledTile(color: Image, mask: Image)
-
+type RuleSet = List[RuledTile]
 
 def getTile(index: Int, current: RuledTile, rules: List[RuledTile]): Tile = {
   val adjacency = Adjacency(
@@ -18,6 +24,7 @@ def getTile(index: Int, current: RuledTile, rules: List[RuledTile]): Tile = {
     getConnections(current.mask, rules) { (s, t) => canConnectY(t, s) }
   )
 
+  // create a DOM image for rendering (with pixelated scaling)
   var imgToRender = current.color.toHTMLImage.css {
     property("image-rendering", "pixelated")
     property("image-rendering", "crisp-edges")
@@ -28,9 +35,8 @@ def getTile(index: Int, current: RuledTile, rules: List[RuledTile]): Tile = {
 }
 
 
-def calculateTileSet(rules: List[RuledTile]): TileSet / Popup = {
-  with on[OutOfBounds].popup
-  
+
+def calculateTileSet(rules: RuleSet): TileSet = {
   val count = rules.size
   val tiles = array::unsafeAllocate(count)
   rules.foreachIndex { (index, rule) =>
@@ -40,7 +46,7 @@ def calculateTileSet(rules: List[RuledTile]): TileSet / Popup = {
   TileSet(tiles)
 }
 
-def getConnections(source: Image, rules: List[RuledTile]) { test: (Image, Image) => Bool }: AdjacencyList = {
+def getConnections(source: Image, rules: RuleSet) { test: (Image, Image) => Bool }: AdjacencyList = {
   var adjacency = Nil()
   rules.foreachIndex { (index, mask) => 
     val can_connect = test(source, mask.mask)
@@ -77,14 +83,18 @@ def canConnectX(source: Image, toTest: Image) at {io}: Bool = valueBoundary[Bool
   true
 }
 
+record RuleLayout(countX: Int, countY: Int, pixels: Int, maskPixels: Int)
+
+// Calculates all rules for all tiles from the image and mask provided
 def getRules(
   color: Image, 
   mask: Image, 
-  countX: Int,
-  countY: Int, 
-  pixels: Int,
-  maskPixels: Int
-): List[RuledTile] = {
+  layout: RuleLayout
+): RuleSet = {
+  val countX = layout.countX
+  val countY = layout.countY
+  val pixels = layout.pixels
+  val maskPixels = layout.maskPixels
 
   var rules = array::unsafeAllocate(countX * countY)
   each(0, countX) { x => 
@@ -108,7 +118,17 @@ def getRules(
 }
 
 
-def getTileSet(color: Image, mask: Image, pixels: Int): TileSet / Popup = {
+/*
+  interface
+*/ 
+
+// creates the ruleset from the provided images and layout
+def createRuleset(color: Image, mask: Image, layout: RuleLayout): RuleSet = {
+  return getRules(color, mask, layout)
+}
+
+// this validates the input sizes and ratios
+def createLayout(color: Image, mask: Image, pixels: Int): RuleLayout / Popup = {
 
   var colorRatio = color.width.toDouble / color.height.toDouble
   var maskRatio = mask.width.toDouble / mask.height.toDouble
@@ -139,7 +159,5 @@ def getTileSet(color: Image, mask: Image, pixels: Int): TileSet / Popup = {
     do Popup(s"Assertion: Mask / Image")
   }
 
-  // compilcated to show but, countX/countY is equals the amount of tiles in the mask
-  val rules = getRules(color, mask, countX, countY, pixels, maskPixels)
-  rules.calculateTileSet()
+  RuleLayout(countX, countY, pixels, maskPixels)
 }
