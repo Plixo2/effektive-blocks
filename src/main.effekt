@@ -220,7 +220,7 @@ def addInputGroup(name: String, inputElement: Node): Node / { HTMLElement } = {
     inputElement.insert.css {
       property("width", "100%")
       property("background", "#2b2b3b")
-      property("border", "1px solid #45475a")
+      property("border", "1px solid #2b2b31ff")
       property("color", "white")
       property("padding", "8px")
       property("border-radius", "6px")
@@ -292,7 +292,7 @@ def createPageContent(body: Node): Unit = {
         h2("Effektive Blocks").css {
           property("margin", "0")
           property("font-size", "1.4rem")
-          property("color", "#74c7ec")
+          property("color", "#9fb8c4ff")
         }
         small("Wave Function Collapse in Effekt")
       }
@@ -300,16 +300,9 @@ def createPageContent(body: Node): Unit = {
       button() {
         text "Help"
       }.css {
-        // background: none;
-        // border: 1px solid var(--accent-color);
-        // color: var(--accent-color);
-        // border-radius: 4px;
-        // padding: 2px 8px;
-        // cursor: pointer;
-        // font-size: 0.75rem;
         property("background", "none")
         property("border", "1px solid #74c7ec")
-        property("color", "#74c7ec")
+        property("color", "#b8e6fbff")
         property("border-radius", "4px")
         property("padding", "2px 8px")
         property("cursor", "pointer")
@@ -387,7 +380,7 @@ def createPageContent(body: Node): Unit = {
       text"Calculate"
     }.css {
       property("margin-top", "10px")
-      property("background-color", "#74c7ec")
+      property("background-color", "#9bbbcaff")
       property("color", "#11111b")
       property("border", "none")
       property("padding", "12px")
