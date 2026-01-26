@@ -2,16 +2,14 @@
 <div align="center">
 
 <h1 align="center">Effektive Blocks</h1>
+<h4 align="center">Map generation using wave function collapse in Effekt</h4>
 
-![Example](example2.png)
+![Example](resources/example2.png)
 
-![Animation](animation.mp4)
+![Animation](resources/animation.mp4)
 
 </div>
 
-
-
--   [ARCHITECTURE](ARCHITECTURE.md)
 
 # Installation & Building
 
@@ -49,9 +47,9 @@ nix build
 
 # Running
 
-After building, you can open the [`main.html`](./out/main.html) file in your browser.
+After building, you can open the `out/main.html` file in your browser:
 
-![Interface](screenshot.png)
+![Interface](resources/screenshot.png)
 
 ### Usage
 Provide the following inputs in the web interface:
@@ -78,6 +76,3 @@ Provide the following inputs in the web interface:
 
 
 These instructions are also available in the web interface.
-
-
-You can find example tilesets and rulesets [here](https://github.com/Plixo2/effektive-blocks/tree/main/examples). 
