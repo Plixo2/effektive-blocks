@@ -1,8 +1,15 @@
 module tile
 
+/*
+  Types and helpers for tiles and directions (WFC algorithm and rule creation)
+*/
+
 
 import src/lib/color
 import src/lib/canvas
+
+type Vec2I = (Int, Int)
+type TileIndex = Int
 
 record Tile(
   image: Image, 
@@ -53,6 +60,7 @@ namespace Direction {
 }
 type Direction = Direction::_Direction
 
+
 def dx(self: Direction): Int = self match {
   case Direction::Right() => 1
   case Direction::Left() => -1
@@ -78,7 +86,17 @@ def adjacencyOfDirection(self: Tile, direction: Direction): AdjacencyList = dire
 }
 
 
-// can find effect like this in std
+def show(coords: Vec2I): String = 
+  s"Vec2(${coords.first.show}, ${coords.second.show})"
+
+
+def show(dir: Direction): String = dir match {
+  case Direction::Up() => "UP"
+  case Direction::Right() => "RIGHT"
+  case Direction::Down() => "DOWN"
+  case Direction::Left() => "LEFT"
+}
+
 effect Break[T](value: T): Nothing
 
 def valueBoundary[T] { f: => T / Break[T] } at {}: T = {

@@ -1,5 +1,9 @@
 module arrays
 
+/*
+  API for array utility functions, based on javaScript arrays.
+  These are used for speed, instead of Effekt's built-in lists and functions.
+*/
 
 import src/ffi
 import array

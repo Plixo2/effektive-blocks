@@ -1,10 +1,20 @@
 module ffi
 
+/*
+ FFI interface. These are never used directly, but reexported in other files:
+ - lib/dom.effekt
+ - lib/canvas.effekt
+ - lib/array.effekt
+ - lib/color.effekt
+*/
 
 
+/// These are JavaScript functions used in the FFI definitions below.
+/// Many of these are image manipulation utilities.
+/// These are not minimal amount of code, but expose the least amount of 
+/// surface area to and from Effekt/JavaScript.
 extern jsWeb """
 function $newDrawingCtx(width, height) {
-    // Create an offscreen canvas
     const canvas = document.createElement("canvas");
     canvas.width = width;
     canvas.height = height;
@@ -155,7 +165,6 @@ function $imageFromImageData(imageData) {
 """
 
 // these are reexported, in the corresponding file, so other files dont have to include ffi
-// 
 extern type _Node        // lib/dom.effekt
 extern type _Style       // lib/dom.effekt 
 
@@ -220,6 +229,8 @@ namespace FFI {
         }
       }) ()
       """
+    extern def getInputBool(node: _Node): Bool =
+      jsWeb "${node}.checked"
       
     extern def onWindowResize(handler: () => Unit at {io, global}) at io: Int =
       jsWeb "window.addEventListener('resize', () => { $effekt.runToplevel((ks, k) => ${handler}(ks, k)) })"
@@ -240,12 +251,10 @@ namespace FFI {
     extern def setProperty(style: _Style, key: String, value: String) at io: Unit =
       jsWeb "(function() { ${style}.setProperty(${key}, ${value}); return ${style} })()"
 
-    // TODO rename
-    extern def width(node: _Node): Int =
+    extern def clientWidth(node: _Node): Int =
       jsWeb "Number(${node}.clientWidth)"
 
-    // TODO rename
-    extern def height(node: _Node): Int =
+    extern def clientHeight(node: _Node): Int =
       jsWeb "Number(${node}.clientHeight)"
 
     extern def setWidth(node: _Node, width: Int): Int =

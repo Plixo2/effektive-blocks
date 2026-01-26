@@ -1,4 +1,13 @@
-module algorithm
+module wfc1
+
+/*
+ Naive Wave Function Collapse implementation
+ This implementation uses backtracking search to find a valid tiling.
+ See wfc2 for a more advanced implementation using constraint propagation.
+ Not used anymore!
+*/
+
+
 import src/wfc/tile
 import src/lib/canvas
 import src/lib/array
@@ -79,13 +88,6 @@ def solve(board: WFC::Grid): WFC::Grid / Search = {
       val newTile = do pickTile()
       if (board.canInsert(x, y, newTile)) {
         val newBoard = updated(board, x, y, newTile)
-        println("...")
-        // println("Inserted")
-        // println(newTile.index)
-        // println("at")
-        // println(x)
-        // println(y)
-        // println("-")
         newBoard.solve()
       } else {
         do fail()
@@ -114,12 +116,10 @@ def findSolution(initial: WFC::Grid, tileset: TileSet): Option[WFC::Grid] = {
       }
     }
   }
- 
 }
 
 
-
-
+/// Create the final image
 def draw(self: WFC::Grid) at {io, global}: Image / Popup = {
   with on[MissingValue].popup
   with on[OutOfBounds].popup
@@ -145,8 +145,8 @@ def draw(self: WFC::Grid) at {io, global}: Image / Popup = {
   }
 
   ctx.image(canvasW, canvasH)
-  
 }
+
 def asTile(self: WFC::Cell): Option[Tile] = {
   if (self is WFC::Cell::collapsed(tile)) {
     Some(tile)  

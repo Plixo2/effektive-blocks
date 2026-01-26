@@ -1,6 +1,7 @@
-# Effektive Blocks
 
 <div align="center">
+
+<h1 align="center">Effektive Blocks</h1>
 
 ![Example](example2.png)
 
@@ -9,128 +10,74 @@
 </div>
 
 
-> [!WARNING]
-> This is a work-in-progress, feel free to contribute!
 
-This template provides a starting point for Effekt projects.
+-   [ARCHITECTURE](ARCHITECTURE.md)
 
-## Table of contents
+# Installation & Building
 
-- [First steps](#first-steps)
-- [Useful commands](#useful-commands)
-  - [Effekt commands](#effekt-commands)
-  - [Nix-related commands](#nix-related-commands)
-- [Example projects](#example-projects-using-this-template)
-- [Repository structure](#repository-structure)
-- [CI](#ci)
+## Prerequisites
+- A valid Effekt installation (version >= 0.59)
+- A web browser (e.g. Firefox, Chrome)
+- A Tile and Ruleset (explained in the web interface)
 
----
+## Building
 
-## First steps
-
-After using this template, follow these steps to set up your project:
-
-1. Set up your development environment:
-   - Clone this repository locally.
-   - Open it in VSCode.
-   - Install the Effekt VSCode extension offered in the pop-up in the bottom right.
-
-2. Customize the project:
-   - Open `flake.nix` and update the project name and other relevant values (follow the comments).
-   - Push your `flake.nix` file after the changes and see if the CI agrees.
-
-3. Set-up auto-update CI in order to get weekly PRs on Tuesday which update the Effekt version in CI:
-   - Go to Settings -> Actions -> General:
-     - and set "Workflow permissions" to "Read and write permissions"
-     - and check "Allow GitHub Actions to create and approve pull requests"    
-   - See the [CI](#ci) section for more details
-
-3. Replace this `README` with your own!
-
-## Useful commands
-
-### Effekt commands
-
-Run the main file:
-```sh
-effekt src/main.effekt
-```
-This (like many other Effekt commands) uses the JavaScript backend by default.
-To use a different backend, add the `--backend <backend>` flag.
-
-Run the tests:
-```sh
-effekt src/test.effekt
+```bash
+effekt --backend js-web src/main.effekt
 ```
 
-Open the REPL:
-```sh
-effekt
+Depending on your setup and effekt version, you might need to adjust optimizations to speed up compilation:
+
+```bash
+effekt --max-inline-size 10 --backend js-web src/main.effekt
 ```
 
-Build the project:
-```sh
-effekt --build src/main.effekt
-```
-This builds the project into the `out/` directory, creating a runnable file `out/main`.
+<details>
+<summary>Building with NIX</summary>
 
-To see all available options and backends, run:
-```sh
-effekt --help
-```
+You can also use Nix to manage dependencies and build the project:
 
-### Nix-related commands
-
-While Nix installation is optional, it provides several benefits:
-
-Update dependencies (also runs automatically in CI):
-```sh
-nix flake update
-```
-
-Open a shell with all necessary dependencies:
-```sh
+```bash
 nix develop
-```
-
-Run the main entry point:
-```sh
 nix run
-```
-
-Build the project (output in `result/bin/`):
-```sh
 nix build
 ```
 
-## Example projects using this template
+</details>
 
-- [see the `effekt-community` GitHub organization](https://github.com/effekt-community/)
-- This very project!
+<br>
 
-## Repository structure
+# Running
 
-- `.github/workflows/*.yml`: Contains the [CI](#ci) definitions
-- `src/`: Contains the source code
-  - `main.effekt`: Main entry point
-  - `test.effekt`: Entry point for tests
-  - `lib.effekt`: Library code imported by `main` and `test`
-- `flake.nix`: Package configuration in a Nix flake
-- `flake.lock`: Auto-generated lockfile for dependencies
-- `LICENSE`: Project license
-- `README`: This README file
+After building, you can open the [`main.html`](./out/main.html) file in your browser.
 
-## CI
+![Interface](screenshot.png)
 
-Two GitHub Actions are set up:
+### Usage
+Provide the following inputs in the web interface:
 
-1. `flake-check`:
-   - Checks the `flake.nix` file, builds and tests the project
-   - Runs on demand, on `main`, and on PRs
-   - To run custom commands, add a step using:
-     - `nix run -- <ARGS>` to run the main entry point with the given arguments
-     - `nix develop -c '<bash command to run>'` to run commands in the correct environment
+- Tileset  \
+    Image that contains all the tiles you want to use in your map, arranged in a grid. (e.g. 4x6 tiles)
+- Ruleset \
+    Image that defines which tiles can be placed next to each other based on their edge colors.
 
-2. `update-flake-lock`:
-   - Updates package versions in `flake.nix`
-   - Runs on demand and weekly (Tuesdays at 00:00 UTC)
+    The Ruleset image and the Tileset image should have the same amount of rows and columns.
+    You can find a example tileset and ruleset in the [examples](./examples) folder.
+
+- Pixels per Tile \
+    Defines how many pixels wide and high each tile is in the tileset (e.g. 32x32 pixels)
+
+- Grid dimensions \
+    Defines the world size you want to generate.
+
+- Speed \
+    Defines how fast the automatic generation should be
+
+- Manual mode \
+    If enabled, you can choose which tile to collapse next manually by clicking on it.
+
+
+These instructions are also available in the web interface.
+
+
+You can find example tilesets and rulesets [here](https://github.com/Plixo2/effektive-blocks/tree/main/examples). 
