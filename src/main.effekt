@@ -175,7 +175,7 @@ def createWFCContext(
   val pixels       =    size.numberFromInputElement()
   val gridSize     =    gridSizeNode.numberFromInputElement()
   val speedPercent =    speedNode.numberFromInputElement().toDouble / 100.0
-  val draw         =    drawNode.boolFromInputElement()
+  val draw         =    not(drawNode.boolFromInputElement())
   val save         =    saveNode.boolFromInputElement()
 
   if (draw && gridSize > 16) {
@@ -208,7 +208,7 @@ def createWFCContext(
 
       // create HMTL elements to render the state into
       var cells = createDOMCells(showCanvas, gridSize)
-      render(not(draw), save, waitTime, cells, state)
+      render(draw, save, waitTime, cells, state)
 
       ()
     })
@@ -383,11 +383,11 @@ def createPageContent(body: Node): Unit = {
     }
     addCheckboxInputGroup("Automatic", draw).attributes {
       attribute("type", "checkbox")
-      attribute("checked", "false")
+      attribute("checked", "true")
     }
     addCheckboxInputGroup("Download", save).attributes {
       attribute("type", "checkbox")
-      attribute("checked", "false")
+      attribute("checked", "true")
     }
     runButton.insert
     .children {
