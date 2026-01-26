@@ -4,3 +4,4 @@ out
 # Nix
 result
 result-*
+.vscode/settings.json
