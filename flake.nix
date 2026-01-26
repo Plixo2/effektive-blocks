@@ -44,6 +44,7 @@
           src = ./.;
           main = mainFile;
           tests = testFiles;
+          extraEffektFlags = [ "--max-inline-size 10" ];
 
           effekt = effektBuild;
           inherit (effektConfig) backends;

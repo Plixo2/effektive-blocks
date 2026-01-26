@@ -24,7 +24,7 @@ def updated(self: WFC::Grid, x: Int, y: Int, tile: Tile): WFC::Grid = {
     }
   }
 
-def canInsert(self: WFC::Grid, x: Int, y: Int, tile: Tile): Bool = boundary[Bool] {
+def canInsert(self: WFC::Grid, x: Int, y: Int, tile: Tile): Bool = valueBoundary[Bool] {
   Direction::VALUES.foreach { (dir) =>
     if (openTileAt(self, x + dir.dx, y + dir.dy) is Some(target)) {
       val canAdd = canConnectTo(tile, target, dir)
@@ -50,7 +50,7 @@ def openTileAt(self: WFC::Grid, x: Int, y: Int): Option[Tile] = {
   }
 }
 
-def findOpen(self: WFC::Grid): Option[(Int, Int)] = boundary[Option[(Int, Int)]] {
+def findOpen(self: WFC::Grid): Option[(Int, Int)] = valueBoundary[Option[(Int, Int)]] {
   self.foreachIndex { (x, column) =>
     column.foreachIndex { (y, value) =>
       if (value is WFC::Cell::open()) {
@@ -103,7 +103,7 @@ def findSolution(initial: WFC::Grid, tileset: TileSet): Option[WFC::Grid] = {
     def fail() = None()
     def pickTile() = {
       val shuffled = shuffle(tiles)
-      boundary[Option[WFC::Grid]] {
+      valueBoundary[Option[WFC::Grid]] {
         array::foreach(shuffled) { tile =>
           resume(tile) match {
             case Some(solution) => do Break(Some(solution))

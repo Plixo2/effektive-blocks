@@ -81,7 +81,7 @@ def adjacencyOfDirection(self: Tile, direction: Direction): AdjacencyList = dire
 // can find effect like this in std
 effect Break[T](value: T): Nothing
 
-def boundary[T] { f: => T / Break[T] } at {}: T = {
+def valueBoundary[T] { f: => T / Break[T] } at {}: T = {
   try {
     f()
   } with Break[T] { value => 

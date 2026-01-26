@@ -163,9 +163,6 @@ extern type _Image       // lib/canvas.effekt
 extern type _ImageData   // lib/canvas.effekt
 extern type _Context2D   // lib/canvas.effekt
 
-extern type _Map256x256  // lib/mutableIntTable.effekt
-extern type _MapKey256   // lib/mutableIntTable.effekt
-
 namespace FFI {
 
   namespace Dom {
@@ -377,18 +374,6 @@ namespace FFI {
         ${array}[0] = ${element};
       } ())
       """
-  }
-
-  namespace Map2D {
-
-      extern def newMap(): _Map256x256 = 
-        jsWeb "(new Int32Array(256 * 256))"
-
-      extern def keyOf(x: Int, y: Int): _MapKey256 = 
-        jsWeb "(${y} << 8) | ${x}})"
-
-    
-
   }
 
 

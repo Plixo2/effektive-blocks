@@ -89,7 +89,6 @@ def cssString(self: Color): String = {
   colorFormat"rgba(${self.r}, ${self.g}, ${self.b}, ${self.a.toDouble})"
 }
 
-
 def show(self: Color): String = {
   colorFormat"Color(${self.r}, ${self.g}, ${self.b}, ${self.a})"
 }

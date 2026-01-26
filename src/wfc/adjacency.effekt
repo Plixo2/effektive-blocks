@@ -27,11 +27,12 @@ def getTile(index: Int, current: RuledTile, rules: List[RuledTile]): Tile = {
   Tile(current.color, imgToRender, index, 1.0, adjacency)
 }
 
+
 def calculateTileSet(rules: List[RuledTile]): TileSet / Popup = {
   with on[OutOfBounds].popup
   
   val count = rules.size
-  val tiles = array::allocate(count)
+  val tiles = array::unsafeAllocate(count)
   rules.foreachIndex { (index, rule) =>
     val tile = getTile(index, rule, rules)
     tiles.set(index, tile)
@@ -54,7 +55,7 @@ def allowConnectionOnColor(a: Color, b: Color): Bool = {
   a == b
 }
 
-def canConnectY(source: Image, toTest: Image) at {io}: Bool = boundary[Bool] {
+def canConnectY(source: Image, toTest: Image) at {io}: Bool = valueBoundary[Bool] {
   each(0, source.width) { x => 
     val sourceColor = source.colorAt(x, 0)
     var testColor = toTest.colorAt(x, toTest.height - 1)
@@ -65,7 +66,7 @@ def canConnectY(source: Image, toTest: Image) at {io}: Bool = boundary[Bool] {
   true
 }
 
-def canConnectX(source: Image, toTest: Image) at {io}: Bool = boundary[Bool] {
+def canConnectX(source: Image, toTest: Image) at {io}: Bool = valueBoundary[Bool] {
   each(0, source.height) { y => 
     val sourceColor = source.colorAt(0, y)
     var testColor = toTest.colorAt(toTest.width - 1, y)
@@ -85,7 +86,7 @@ def getRules(
   maskPixels: Int
 ): List[RuledTile] = {
 
-  var rules = array::allocate(countX * countY)
+  var rules = array::unsafeAllocate(countX * countY)
   each(0, countX) { x => 
     each(0, countY) { y => 
       val colorTile = color.blit(
@@ -100,7 +101,7 @@ def getRules(
         maskPixels,
         maskPixels
       );
-      rules.unsafeSet(y * countX + x, RuledTile(colorTile, maskTile))
+      rules.set(y * countX + x, RuledTile(colorTile, maskTile))
     }
   }
   rules.toList

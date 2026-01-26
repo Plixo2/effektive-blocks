@@ -44,7 +44,7 @@ def grid(node: Node, size: Int) = node.css {
 }
 
 def create(showCanvas: Node, size: Int): Array[Node] = {
-  val elements = array::allocate(size * size)
+  val elements = array::unsafeAllocate(size * size)
   showCanvas.removeContent()
   showCanvas.onChildren {
     div {
@@ -52,7 +52,7 @@ def create(showCanvas: Node, size: Int): Array[Node] = {
         each (0, size) { x =>
           val c = div{}
           cell(c)
-          elements.unsafeSet(y * size + x, c)
+          elements.set(y * size + x, c)
 
           // c.onClick(box { 
           //   with popup
@@ -88,7 +88,7 @@ def render(individual: Bool, delay: Int, images: Array[Node], grid: Ref[StateGri
       if (individual) {
         var imgs = grid.get().tilesAt((x, y))
        
-        var container = images.unsafeGet(y * size + x)
+        var container = images.get(y * size + x)
         var count = imgs.size().toDouble
         val n = count.sqrt().ceil()
         val size = container.width.toDouble;   
@@ -96,7 +96,7 @@ def render(individual: Bool, delay: Int, images: Array[Node], grid: Ref[StateGri
 
         container.removeContent()
         imgs.foreachIndex { (i, tileIndex) => {
-          var img = grid.get().tileset.tiles.unsafeGet(tileIndex).htmlImage
+          var img = grid.get().tileset.tiles.get(tileIndex).htmlImage
           val item = img.clone;
           val a = (i.toDouble / n.toDouble).floor.toDouble;
           item.css {
@@ -124,9 +124,9 @@ def render(individual: Bool, delay: Int, images: Array[Node], grid: Ref[StateGri
       } else {
         var imgs = grid.get().getImages((x, y))
         if (imgs.size() == 1) {
-          var container = images.unsafeGet(y * size + x)
+          var container = images.get(y * size + x)
           container.removeContent()
-          container.appendChild(imgs.unsafeGet(0).clone)
+          container.appendChild(imgs.get(0).clone)
         }
       }
       ()
@@ -152,10 +152,10 @@ def render(individual: Bool, delay: Int, images: Array[Node], grid: Ref[StateGri
 
 def handleData(showCanvas: Node, color: Node, mask: Node, size: Node, gridSizeNode: Node, speedNode: Node, drawNode: Node, canContinue: => Bool at global) at {io}: Unit = {
   with popup
-  val pixels       =    size        .numberFromInputElement()
+  val pixels       =    size.numberFromInputElement()
   val gridSize     =    gridSizeNode.numberFromInputElement()
-  val speedPercent =    speedNode   .numberFromInputElement().toDouble / 100.0
-  val draw         =    drawNode    .getInputBool()
+  val speedPercent =    speedNode.numberFromInputElement().toDouble / 100.0
+  val draw         =    drawNode.getInputBool()
 
   if (draw && gridSize > 16) {
     do Popup("Size to lange. Your browser does not support this. Disable drawing. ")
@@ -171,7 +171,7 @@ def handleData(showCanvas: Node, color: Node, mask: Node, size: Node, gridSizeNo
       val mask: Image = mask?.getOrElse {
         do Popup(s"Provide a mask image")
       }
-      println("Calculate Set")
+      println("Calculating Set")
       val tileset = getTileSet(color, mask, pixels)
       println("Calculated!")
 
