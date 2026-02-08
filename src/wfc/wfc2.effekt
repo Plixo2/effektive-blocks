@@ -155,6 +155,17 @@ def wfcStateGrid(tileset: TileSet, size: Int): StateGrid = {
   StateGrid(tileset, size, cells)
 }
 
+/// check if the grid is fully collapsed (i.e. each cell has exactly one tile)
+def isCollapsed(self: StateGrid): Bool = valueBoundary {
+  self.foreachCell { coords => 
+    val tiles = self.tilesAt(coords)
+    if (tiles.size != 1) {
+      do Break(false)
+    }
+  }
+  true
+}
+
 
 /// collapse cell at coords to specific element, should be valid (has to be checked before)
 def collapseAtSpecific(self: StateGrid, coords: Vec2I, element: TileIndex): Unit = {
@@ -232,7 +243,7 @@ def createDebugStateImage(grid: StateGrid, tileCount: Int) at {io, global}: Imag
 }
 
 /// Debug for showing only the collapsed cells of a grid
-def createDebugStateImageCollapsed(grid: StateGrid) at {io, global}: Image = {
+def createStateImageCollapsed(grid: StateGrid) at {io, global}: Image = {
   val tileSize = grid.tileset.tiles.get(0).image.width
   var canvasSize = grid.size * tileSize;
   val ctx = context2D(canvasSize, canvasSize)

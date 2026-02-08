@@ -82,7 +82,7 @@ def createDOMCells(showCanvas: Node, size: Int): StateDOMCells = {
 
 
 /// update the WFC and render the current state. Either done automatically or manually via clicks
-def render(manualMode: Bool, delay: Int, cells: StateDOMCells, gridReference: Ref[StateGrid]): Unit = {
+def render(manualMode: Bool, saveImage: Bool, delay: Int, cells: StateDOMCells, gridReference: Ref[StateGrid]): Unit = {
   val grid = gridReference.get()
   var size = grid.size
   
@@ -111,7 +111,11 @@ def render(manualMode: Bool, delay: Int, cells: StateDOMCells, gridReference: Re
             try {
               grid.collapseAtSpecific((x, y), tileIndex)
               grid.propagate((x, y))
-              render(manualMode, delay, cells, gridReference)
+              if (saveImage && grid.isCollapsed()) {
+                val image = grid.createStateImageCollapsed()
+                image.download("map2.png")
+              }
+              render(manualMode, saveImage, delay, cells, gridReference)
             } with fail { => 
               do Popup("Could not solve image, try increasing the size or changing the image/mask")
             }
@@ -137,11 +141,14 @@ def render(manualMode: Bool, delay: Int, cells: StateDOMCells, gridReference: Re
       with popup
       try {
         grid.step()
-        render(manualMode, delay, cells, gridReference)
+        render(manualMode, saveImage, delay, cells, gridReference)
       } with fail { => 
         do Popup("Could not solve image, try increasing the size or changing the image/mask")
       } with stop { => 
-        // solved, do nothing
+        if (saveImage) {
+          val image = grid.createStateImageCollapsed()
+          image.download("map1.png")
+        }
       }
       ()
     })
@@ -159,6 +166,7 @@ def createWFCContext(
   gridSizeNode: Node,   // size of the grid
   speedNode: Node,      // speed of the visualization
   drawNode: Node,       // whether to draw the process, or let the use click
+  saveNode: Node,       // whether to save the result as png
   canContinue: => Bool at global
 ) at {io}: Unit = {
 
@@ -167,7 +175,8 @@ def createWFCContext(
   val pixels       =    size.numberFromInputElement()
   val gridSize     =    gridSizeNode.numberFromInputElement()
   val speedPercent =    speedNode.numberFromInputElement().toDouble / 100.0
-  val draw         =    drawNode.boolFromInputElement()
+  val draw         =    not(drawNode.boolFromInputElement())
+  val save         =    saveNode.boolFromInputElement()
 
   if (draw && gridSize > 16) {
     do Popup("Size to lange. Your browser does not support this. Disable drawing. ")
@@ -199,7 +208,7 @@ def createWFCContext(
 
       // create HMTL elements to render the state into
       var cells = createDOMCells(showCanvas, gridSize)
-      render(draw, waitTime, cells, state)
+      render(draw, save, waitTime, cells, state)
 
       ()
     })
@@ -276,13 +285,14 @@ def addCheckboxInputGroup(name: String, inputElement: Node): Node / { HTMLElemen
 def createPageContent(body: Node): Unit = {
   with body.onChildren
 
-  val color     = createElement("input")
-  val mask      = createElement("input")
-  val size      = createElement("input")
-  val gridSize  = createElement("input")
-  val speed     = createElement("input")
-  val draw      = createElement("input")
-  var runButton = createElement("button")
+  val color      = createElement("input")
+  val mask       = createElement("input")
+  val size       = createElement("input")
+  val gridSize   = createElement("input")
+  val speed      = createElement("input")
+  val draw       = createElement("input")
+  val save       = createElement("input")
+  var runButton  = createElement("button")
 
   
 
@@ -375,6 +385,10 @@ def createPageContent(body: Node): Unit = {
       attribute("type", "checkbox")
       attribute("checked", "true")
     }
+    addCheckboxInputGroup("Download", save).attributes {
+      attribute("type", "checkbox")
+      attribute("checked", "true")
+    }
     runButton.insert
     .children {
       text"Calculate"
@@ -425,7 +439,7 @@ def createPageContent(body: Node): Unit = {
     p.set(newRef)
     def canContinue() : Bool = newRef.get()
 
-    createWFCContext(drawContainer, color, mask, size, gridSize, speed, draw, box canContinue)
+    createWFCContext(drawContainer, color, mask, size, gridSize, speed, draw, save, box canContinue)
   })
 
   ()
